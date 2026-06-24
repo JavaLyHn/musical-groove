@@ -14,7 +14,7 @@ import { createSparks } from './scene/sparks.js';
 import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
-import { createAGC } from './util/agc.js';
+import { createAudioShaper } from './util/audioShaper.js';
 import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
 import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
@@ -26,9 +26,9 @@ const scene = createScene();
 
 // `audio` starts simulated and is swapped to the real source once connected.
 let audio = createSimulatedAudioSource();
-// Auto-gain normalizes whatever source is live, so the picture is anchored to
-// the same look regardless of how loud/quiet the track is.
-const agc = createAGC();
+// The shaper turns whatever source is live into a per-band-normalized drive (so
+// every ring dances on its own band) + an overall amplitude level.
+const shaper = createAudioShaper(CONFIG.bands);
 const field = createPillarField();
 scene.add(field.mesh);
 scene.add(field.capMesh);
@@ -86,8 +86,8 @@ function frame() {
   acc = 0;
 
   audio.update(dt);
-  const { spectrum, levels } = agc.process(audio.getSpectrum(), audio.getLevels(), dt);
-  field.update(spectrum, levels, dt);
+  const { spectrum, levels, level } = shaper.process(audio.getSpectrum(), dt);
+  field.update(spectrum, levels, level, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
   sparks.update(levels, dt);

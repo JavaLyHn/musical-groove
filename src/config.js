@@ -22,18 +22,19 @@ export const CONFIG = {
   },
 
   field: {
-    // AUDIO is the primary HEIGHT driver. The centre stands tall because the
-    // bass band (mapped to the centre) is loud, not because of a frozen bump —
-    // and brightness then FOLLOWS height (see brightSpan/brightPow below), so a
-    // column shoots up and whitens together instead of lights flashing on flat ground.
-    centerPeak: 1.5,         // small STATIC centre bias (was 11) — audio now makes the centre tall
-    falloff: 26.0,           // shaping of that small static centre bias
+    // CORRECT structure: the idle floor always covers the WHOLE dome; the overall
+    // `level` (volume) scales the audio AMPLITUDE on top; and the per-band shaped
+    // spectrum (see `shaper`) decides which rings rise — so each ring dances on its
+    // own band. Volume controls height, NOT the lit area.
+    centerPeak: 1.5,         // small STATIC core mound so the centre is always anchored
+    falloff: 26.0,           // shaping of that small static core mound
     baseHeight: 2.0,         // low floor; quiet/edge columns sit here
-    reactive: 19.0,          // BIG height gain -> tallest columns reach ~8-10x base on peaks
-    ampPow: 1.8,             // height ∝ amp^1.8 -> loud bands spike disproportionately (thin tall towers)
-    bandScatter: 0.28,       // per-column FFT-band scatter -> granular, neighbours move independently
-    jitter: 1.2,             // a little STATIC per-column height for texture (was 3.5)
-    idleAmp: 1.0,            // gentle breathing so it's never dead in silence
+    reactive: 19.0,          // height gain on the (already-normalized) audio drive
+    ampPow: 1.8,             // drive^1.8 -> transients spike into thin tall towers
+    bandScatter: 0.28,       // per-column band scatter -> granular, neighbours move independently
+    jitter: 1.2,             // a little STATIC per-column height for texture
+    radialBias: 0.4,         // gentle centre emphasis (w = 1 - radialBias*ringT); NOT a volume gate
+    idleAmp: 1.0,            // idle floor amplitude — covers the whole dome, never zero
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
     damping: 14.0,
@@ -44,9 +45,6 @@ export const CONFIG = {
     brightFloor: 0.15,       // dark-blue floor: below this (after pow) a column stays dark, not lit ->
                              //   dark field + hot core contrast holds even at the loudest moment
     radialDim: 0.30,         // mild edge dimming for depth (height now carries most of the brightness)
-    activeRmin: 0.6,         // quietest active radius (never collapses to a point); grows to 1.0 with level
-    activeSoft: 0.25,        // soft falloff width at the active-radius edge
-    idleFloorR: 0.3,         // idle floor reaches a bit past the active radius so edges keep faint life
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
     pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes
@@ -73,9 +71,17 @@ export const CONFIG = {
     threshold: 0.5, edge: 0.08,
   },
 
-  // auto-gain: rolling-peak normalization of the audio input so the picture is
-  // anchored to the same look regardless of how loud/quiet the track is.
-  agc: { tau: 2.5, floor: 0.32 },   // tau = peak decay time (s); floor caps the max gain at 1/floor
+  // audio shaper: mel re-bin + PER-BAND normalization (each band ÷ its own rolling
+  // mean) so every ring dances on its own band, + an overall `level` for amplitude.
+  shaper: {
+    bandEps: 0.06,           // per-band noise floor: suppresses near-silent bands (no noise-amplifying)
+    bandGain: 0.4,           // per-band drive scale: a STEADY band reads ~0.4 (stays dark); only a
+                             //   transient ABOVE its own mean pops toward 1 (bright) -> scattered hot
+                             //   spikes on a dark field, never a solid white-out
+    meanTau: 1.5,            // per-band rolling-mean time constant (s)
+    peakTau: 2.5,            // overall-level rolling-peak decay (s): within-song dynamics + cross-song anchor
+    peakFloor: 0.04,         // min overall peak -> caps how much a near-silent track is amplified
+  },
 
   core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0 }, // dim + cool
   stars: { count: 1400, radius: 220 },
@@ -87,7 +93,7 @@ export const CONFIG = {
   // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
   // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
   camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, orbitSpeed: 0, bob: 0 },
-  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.90, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
+  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.92, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
   fpsCap: 30,                // preset overrides this

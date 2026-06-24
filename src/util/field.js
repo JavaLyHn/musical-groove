@@ -1,4 +1,4 @@
-import { clamp, lerp, smoothstep, radialEnergy } from './math.js';
+import { clamp, radialEnergy } from './math.js';
 
 // Spherical cap: the square grid is wrapped onto a sphere of `sphereRadius`,
 // apex at the origin (sphere centre at y = -sphereRadius). The cap spans polar
@@ -46,38 +46,35 @@ export function ringBandIndex(ringT, bands) {
 
 // `phase`, `bias`, `bandJitter` are per-column (from the layout). They make
 // adjacent columns differ -> a jagged "thousands of independent cubes" skyline.
-// `level` is the AGC-normalized overall loudness (0..1).
+// `spectrum` is the SHAPED (mel + per-band-normalized) drive, `level` is the
+// overall amplitude (0..1).
 //
-// Two-sided range control:
-//  - AUDIO drives height through a power curve (thin tall spikes), but it is
-//    bounded by the AGC upstream so the loudest moment can't run away.
-//  - height = max(idleFloor, audio): a gentle, ever-present idle floor means the
-//    dome never collapses to nothing in silence.
-//  - the active radius grows with `level` but never below activeRmin, so a quiet
-//    passage shrinks the field gently instead of crushing it to a point.
+// The structure that fixes white-out + collapse + dead edges at once:
+//  - idle floor: ALWAYS present across the WHOLE dome, so the field never
+//    collapses to a point and always covers the dome (volume != lit area).
+//  - audio on top: `level` scales the AMPLITUDE (loud = generally taller), while
+//    the per-band drive decides WHICH rings rise — each ring on its own band, so
+//    the outer rings live and a loud moment spreads across the field instead of
+//    blowing the centre into one white blob.
 export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0, bandJitter = 0, level = 0) {
-  // Per-column band scatter: neighbours read different FFT bins and move
-  // independently (granular) — no single disk pulsing — while the radial trend
-  // (centre = bass, edge = treble) is preserved.
+  // Per-column band scatter: neighbours read different (perceptual) bands and move
+  // independently; the radial trend (centre = low freq, edge = high freq) holds.
   const band = ringBandIndex(ringT + cfg.bandScatter * bandJitter, spectrum.length);
-  const a = spectrum[band];
+  const drive = spectrum[band];                 // per-band normalized: every ring comparable
+  const w = 1 - cfg.radialBias * ringT;         // gentle centre emphasis (NOT a volume gate)
 
-  // Active radius: grows with loudness, floored at activeRmin (no collapse to a point).
-  const activeR = lerp(cfg.activeRmin, 1.0, level);
-  const radial = 1 - smoothstep(activeR, activeR + cfg.activeSoft, ringT); // 1 inside, soft to 0 beyond
+  // Audio amplitude = overall volume × this ring's drive (power curve -> thin spikes).
+  const audioH = level * Math.pow(drive, cfg.ampPow) * cfg.reactive * (0.5 + 0.5 * bias) * w;
 
-  // Audio-driven height (power curve -> loud bands spike into thin tall towers).
-  const audioH =
-    (Math.pow(a, cfg.ampPow) * cfg.reactive * (0.5 + 0.5 * bias) +
-      radialEnergy(r, cfg.centerPeak, cfg.falloff)) * radial;
-
-  // Ever-present idle floor: per-column shimmer + a slow radial swell + a little
-  // per-column static height, so the dome breathes and glows faintly in silence.
+  // Idle floor: per-column shimmer + a slow radial swell, present across the WHOLE
+  // dome at all times (full coverage, never zero), plus a touch of static texture.
   const idleH =
-    (cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase)) +
-      cfg.idleAmp * 0.6 * (0.5 + 0.5 * Math.sin(t * 0.3 + r * 0.12)) +
-      bias * cfg.jitter) * Math.max(radial, cfg.idleFloorR);
+    cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase)) +
+    cfg.idleAmp * 0.6 * (0.5 + 0.5 * Math.sin(t * 0.3 + r * 0.12)) +
+    bias * cfg.jitter;
 
-  // height = max(idle floor, audio): audio lifts above the floor, never below it.
-  return cfg.baseHeight + Math.max(idleH, audioH);
+  // small static core mound so the centre is always anchored
+  const coreBias = radialEnergy(r, cfg.centerPeak, cfg.falloff);
+
+  return cfg.baseHeight + idleH + coreBias + audioH;
 }

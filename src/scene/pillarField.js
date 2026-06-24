@@ -107,11 +107,9 @@ export function createPillarField() {
   capMesh.instanceMatrix.needsUpdate = true;
   capMesh.instanceColor.needsUpdate = true;
 
-  function update(spectrum, levels, dt) {
+  function update(spectrum, levels, level, dt) {
     const t = performance.now() / 1000;
     const w = CONFIG.wave;
-    // overall loudness (bass-weighted) drives the active radius (0..1)
-    const level = clamp(0.5 * levels.bass + 0.3 * levels.mid + 0.2 * levels.treble, 0, 1);
 
     // onset detection on the bass rising edge -> spawn a radial shockwave
     if (levels.bass > 0.45 && levels.bass - prevBass > 0.07) waves.push({ age: 0 });
