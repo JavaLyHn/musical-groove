@@ -34,14 +34,14 @@ export const CONFIG = {
     bandScatter: 0.28,       // per-column band scatter -> granular, neighbours move independently
     jitter: 1.2,             // a little STATIC per-column height for texture
     radialBias: 0.4,         // gentle centre emphasis (w = 1 - radialBias*ringT); NOT a volume gate
-    idleAmp: 1.0,            // idle floor amplitude — covers the whole dome, never zero
+    idleAmp: 1.5,            // idle floor amplitude — covers the whole dome, never zero
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
     damping: 14.0,
     attack: 0.5,             // fast rise (surge up)
     decay: 0.92,             // slow fall per 1/60s (melt down)
-    heightScale: 1.0,        // master multiplier on the GPU audio elevation (per-band motifs)
-    whiteElev: 10.0,         // elevation at which a column is fully white-hot (brightness normalizer)
+    heightScale: 1.8,        // master multiplier on the GPU audio elevation (per-band motifs)
+    whiteElev: 6.0,          // elevation at which a column is fully white-hot (lower = brighter sooner)
     brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
     brightFloor: 0.15,       // dark-blue floor: below this (after pow) a column stays dark, not lit ->
@@ -85,10 +85,8 @@ export const CONFIG = {
   // audio shaper: mel re-bin + PER-BAND normalization (each band ÷ its own rolling
   // mean) so every ring dances on its own band, + an overall `level` for amplitude.
   shaper: {
-    bandEps: 0.06,           // per-band noise floor: suppresses near-silent bands (no noise-amplifying)
-    bandGain: 0.4,           // per-band drive scale: a STEADY band reads ~0.4 (stays dark); only a
-                             //   transient ABOVE its own mean pops toward 1 (bright) -> scattered hot
-                             //   spikes on a dark field, never a solid white-out
+    bandEps: 0.04,           // per-band noise floor: lower -> weak high bands lift the outer rings more
+    bandGain: 0.55,          // per-band drive scale: a steady band reads ~0.55, transients -> 1
     meanTau: 1.5,            // per-band rolling-mean time constant (s)
     peakTau: 2.5,            // overall-level rolling-peak decay (s): within-song dynamics + cross-song anchor
     peakFloor: 0.04,         // min overall peak -> caps how much a near-silent track is amplified
