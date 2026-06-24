@@ -38,9 +38,10 @@ export const CONFIG = {
   },
 
   // depth fog -> from mid-field outward the far cubes sink into the cool
-  // deep-space color while the foreground/core stay bright. Volume, not a flat
-  // painting. near≈the bright central cluster, far≈the back edge of the field.
-  fog: { near: 92, far: 208 },
+  // deep-space color while the foreground/core stay bright. The camera rig
+  // re-derives near/far from the camera distance so the depth look holds while
+  // tuning; these are the static fallback.
+  fog: { near: 175, far: 330 },
 
   // beat-triggered radial shockwave rippling outward across the field
   wave: { speed: 40.0, width: 9.0, amp: 12.0, decay: 1.4 },
@@ -49,9 +50,12 @@ export const CONFIG = {
   stars: { count: 1400, radius: 220 },
   // STATIC camera (no orbit/bob) — LOW oblique 3/4 view across the field so the
   // columns stand up, fill the frame, and their up/down motion is visible.
-  // STATIC, LOW grazing angle: low camera + raised look-at so the tall core
-  // cluster sits near the horizon line and we see the towers' sides + skyline.
-  camera: { fov: 64, height: 26, distance: 112, orbitSpeed: 0, bob: 0, lookAtY: 7.0 },
+  // STATIC telephoto camera, expressed the intuitive way: a narrow FOV (long-lens
+  // compression) looking DOWN at pitchDeg, from `distance` away, aimed straight
+  // at the core (targetY). Higher pitch drops the core off the horizon into the
+  // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
+  // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
+  camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, orbitSpeed: 0, bob: 0 },
   post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.86, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'mid',            // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)

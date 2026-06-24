@@ -26,9 +26,9 @@ export function createRenderer(canvas) {
 }
 
 export function createCamera() {
-  const cam = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 500);
-  cam.position.set(0, CONFIG.camera.height, CONFIG.camera.distance);
-  cam.lookAt(0, 1.5, 0);
+  // position, lookAt and fov are owned by the camera rig (pitch/distance/targetY
+  // model). Far clip is generous so a pulled-back telephoto still sees the field.
+  const cam = new THREE.PerspectiveCamera(CONFIG.camera.fov, window.innerWidth / window.innerHeight, 0.1, 800);
   return cam;
 }
 

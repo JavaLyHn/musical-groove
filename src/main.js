@@ -37,7 +37,7 @@ scene.add(stars.points);
 const atmosphere = createAtmosphere();
 scene.add(atmosphere.sprite);
 
-const rig = createCameraRig(camera);
+const rig = createCameraRig(camera, scene);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
 
 // Swap the simulated source for real system audio (prefers a BlackHole-style
