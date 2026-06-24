@@ -20,6 +20,7 @@ import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js'
 import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
 import { createNowPlaying } from './nowPlaying.js';
+import { createSignature } from './signature.js';
 
 const canvas = document.getElementById('app');
 const renderer = createRenderer(canvas);
@@ -58,11 +59,23 @@ scene.add(atmosphere.sprite);
 const rig = createCameraRig(camera, scene);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
 
-// ?gui — real-time control panel (lil-gui). Dynamically imported so it (and lil-gui) are
-// code-split out of the wallpaper bundle and only loaded when you actually open it.
-if (new URLSearchParams(location.search).has('gui')) {
-  import('./gui.js').then(({ createGui }) => createGui({ rig, renderer })).catch(() => {});
-}
+// LyHN signature (top-left): click it to toggle the live control panel. lil-gui is
+// dynamically imported on first open, so it's code-split out of the wallpaper bundle.
+let _panel = null;
+let _panelOpen = false;
+const _sig = createSignature({
+  onToggle: async () => {
+    if (!_panel) {
+      const { createGui } = await import('./gui.js');
+      _panel = createGui({ rig, renderer });
+      _panelOpen = true;
+      return;
+    }
+    _panelOpen = !_panelOpen;
+    if (_panelOpen) _panel.show(); else _panel.hide();
+  },
+});
+if (new URLSearchParams(location.search).has('gui')) _sig.click(); // auto-open with ?gui
 
 // Swap the simulated source for real system audio (prefers a BlackHole-style
 // loopback device; falls back to the default input). Same interface -> no

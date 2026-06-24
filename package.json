@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc -p jsconfig.json --noEmit"
+    "typecheck": "tsc -p jsconfig.json --noEmit",
+    "nowplaying:fix": "killall QuickLookUIService 2>/dev/null || true"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

@@ -1,14 +1,47 @@
 // @ts-check
-// Real-time control panel (lil-gui), shown only with ?gui. Every reactive event follows
-// the reference's clean (sensitivity + cooldown) pair. These sliders write straight to
-// CONFIG / the camera state / the renderer — all read live each frame — so the look can
-// be dialled in the browser instead of round-tripping screen recordings.
+// Real-time control panel (lil-gui), opened by clicking the LyHN signature. Every reactive
+// event follows the reference's clean (sensitivity + cooldown) pair. These sliders write
+// straight to CONFIG / the camera state / the renderer — all read live each frame — so the
+// look can be dialled in the browser instead of round-tripping screen recordings.
 import GUI from 'lil-gui';
 import { CONFIG } from './config.js';
 
+// Transparent, glassy theme matching the cool/tech palette; panel sits under the signature.
+function injectTheme() {
+  if (document.getElementById('lyhn-gui-theme')) return;
+  const s = document.createElement('style');
+  s.id = 'lyhn-gui-theme';
+  s.textContent = `
+    .lil-gui.lyhn-gui.root{
+      position:fixed; top:56px; left:16px; right:auto; z-index:11;
+      --background-color:rgba(11,19,48,0.38);
+      --title-background-color:rgba(11,19,48,0.0);
+      --title-text-color:#bfeaf2;
+      --text-color:#cfd7f6;
+      --widget-color:rgba(95,208,224,0.14);
+      --hover-color:rgba(95,208,224,0.26);
+      --focus-color:rgba(130,205,235,0.36);
+      --number-color:#bcaff4;
+      --string-color:#7fe0ee;
+      --font-size:11px; --input-font-size:11px; --width:266px;
+      -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+      border:1px solid rgba(130,165,235,0.22); border-radius:12px;
+      box-shadow:0 10px 44px rgba(0,0,0,.40);
+    }
+    .lil-gui.lyhn-gui .title{
+      font-family:'Snell Roundhand','Zapfino','Apple Chancery',cursive;
+      font-size:20px; letter-spacing:.4px; font-weight:600;
+      border-bottom:1px solid rgba(130,165,235,0.16);
+    }
+    .lil-gui.lyhn-gui .children, .lil-gui.lyhn-gui .controller{ background:transparent; }`;
+  document.head.appendChild(s);
+}
+
 /** @param {{ rig: { state: any }, renderer: any }} refs */
 export function createGui({ rig, renderer }) {
-  const gui = new GUI({ title: '声音星球 · 实时调参' });
+  injectTheme();
+  const gui = new GUI({ title: 'LyHN' });
+  gui.domElement.classList.add('lyhn-gui');
 
   const fr = gui.addFolder('涟漪 Ripple');
   fr.add(CONFIG.ripple, 'sensitivity', 0, 0.5, 0.005).name('灵敏度 (低=易触发)');
