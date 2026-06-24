@@ -49,8 +49,15 @@ async function connectRealAudio() {
   return deviceId ? '● ' + web.label : '● ' + web.label + '（建议用 BlackHole 取系统声音）';
 }
 const controls = createAudioControls({ onConnect: connectRealAudio });
-// headless / quick test hook: ?autoaudio connects without a click
-if (new URLSearchParams(location.search).has('autoaudio')) controls.connect();
+// After the first permission grant, auto-connect on every load (no click needed) —
+// so as a wallpaper it just senses the music. (?autoaudio forces it, for testing.)
+(async () => {
+  if (new URLSearchParams(location.search).has('autoaudio')) { controls.connect(); return; }
+  try {
+    const st = await navigator.permissions.query({ name: 'microphone' });
+    if (st.state === 'granted') controls.connect();
+  } catch (e) { /* permissions API unavailable -> keep the manual button */ }
+})();
 
 const clock = new THREE.Clock();
 
