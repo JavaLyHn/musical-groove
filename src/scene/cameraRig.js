@@ -19,13 +19,16 @@ export function createCameraRig(camera, scene) {
     fov: c.fov ?? 35,
     distance: c.distance ?? 190,
     targetY: c.targetY ?? 7,
+    azimuthDeg: c.azimuthDeg ?? 0,
   };
 
   function apply() {
     const pitch = (s.pitchDeg * Math.PI) / 180;
+    const az = (s.azimuthDeg * Math.PI) / 180; // off-axis a few degrees so the centre grout line isn't viewed edge-on
+    const horiz = s.distance * Math.cos(pitch);
     camera.fov = s.fov;
     camera.updateProjectionMatrix();
-    camera.position.set(0, s.targetY + s.distance * Math.sin(pitch), s.distance * Math.cos(pitch));
+    camera.position.set(horiz * Math.sin(az), s.targetY + s.distance * Math.sin(pitch), horiz * Math.cos(az));
     camera.lookAt(0, s.targetY, 0);
     if (scene && scene.fog) {
       scene.fog.near = s.distance * 0.92; // just in front of the core stays sharp

@@ -105,7 +105,7 @@ export const CONFIG = {
   // at the core (targetY). Higher pitch drops the core off the horizon into the
   // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
   // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
-  camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, orbitSpeed: 0, bob: 0 },
+  camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, azimuthDeg: 12, orbitSpeed: 0, bob: 0 },
   post: { bloomStrength: 0.16, bloomRadius: 0.55, bloomThreshold: 0.62, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
