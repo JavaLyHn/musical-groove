@@ -18,8 +18,8 @@ export const CONFIG = {
   },
 
   field: {
-    centerPeak: 4.0,         // central height bump
-    falloff: 40.0,           // broad-ish; the radial weight does the main concentration
+    centerPeak: 11.0,        // tall central spike -> a cluster of soaring towers, not a lit dome
+    falloff: 26.0,           // tighter -> the tall cluster stays a cluster (inner radius), edges short
     baseHeight: 2.2,         // low floor so edges stay short and the center stands out
     reactive: 12.0,          // spectrum relief (eased so the center spreads, not spikes)
     jitter: 3.5,             // per-column random static height -> jagged independent-cube skyline
@@ -49,8 +49,10 @@ export const CONFIG = {
   stars: { count: 1400, radius: 220 },
   // STATIC camera (no orbit/bob) — LOW oblique 3/4 view across the field so the
   // columns stand up, fill the frame, and their up/down motion is visible.
-  camera: { fov: 64, height: 52, distance: 96, orbitSpeed: 0, bob: 0, lookAtY: 2.0 },
-  post: { bloomStrength: 0.16, bloomRadius: 0.5, bloomThreshold: 0.78, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
+  // STATIC, LOW grazing angle: low camera + raised look-at so the tall core
+  // cluster sits near the horizon line and we see the towers' sides + skyline.
+  camera: { fov: 64, height: 26, distance: 112, orbitSpeed: 0, bob: 0, lookAtY: 7.0 },
+  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.86, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets)
   fpsCap: 60,

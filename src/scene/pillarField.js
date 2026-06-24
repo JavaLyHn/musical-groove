@@ -31,10 +31,11 @@ export function createPillarField() {
       .replace('#include <emissivemap_fragment>',
         '#include <emissivemap_fragment>\n' +
         'float _seg = smoothstep(uGapRatio, uGapRatio + 0.10, fract(vSegY / uSegPitch));\n' +
-        'float _top = smoothstep(0.78, 1.0, vYNorm);\n' +
+        'float _segMask = mix(0.22, 1.0, _seg);\n' +
+        'float _top = smoothstep(0.80, 1.0, vYNorm);\n' +
         'totalEmissiveRadiance *= vColor;\n' +
-        'totalEmissiveRadiance *= mix(0.22, 1.0, _seg);\n' +
-        'totalEmissiveRadiance += vColor * _top * 1.6;');
+        'totalEmissiveRadiance *= _segMask;\n' +
+        'totalEmissiveRadiance += vColor * _top * 0.95 * _segMask;'); // bright lid keeps the gap lines -> a white-hot CUBE, not a blob of light
   };
 
   const mesh = new THREE.InstancedMesh(geo, mat, n);
