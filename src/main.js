@@ -15,6 +15,7 @@ import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
 import { createAudioShaper } from './util/audioShaper.js';
+import { createBeatDetector } from './util/beatDetector.js';
 import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
 import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
@@ -29,6 +30,8 @@ let audio = createSimulatedAudioSource();
 // The shaper turns whatever source is live into a per-band-normalized drive (so
 // every ring dances on its own band) + an overall amplitude level.
 const shaper = createAudioShaper(CONFIG.bands);
+// Spectral-flux beat detection (adaptive threshold), fed the raw spectrum.
+const beatDetector = createBeatDetector();
 const field = createPillarField();
 scene.add(field.mesh);
 scene.add(field.capMesh);
@@ -86,11 +89,13 @@ function frame() {
   acc = 0;
 
   audio.update(dt);
-  const { spectrum, levels, level } = shaper.process(audio.getSpectrum(), dt);
-  field.update(spectrum, levels, level, dt);
+  const raw = audio.getSpectrum();
+  const beat = beatDetector.process(raw, dt);
+  const { spectrum, levels, level } = shaper.process(raw, dt);
+  field.update(spectrum, levels, level, beat, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
-  sparks.update(levels, dt);
+  sparks.update(beat, dt);
   rig.update(dt);
   updateFx(dt, levels.bass);
   composer.render();

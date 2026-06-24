@@ -55,8 +55,7 @@ export function createPillarField() {
 
   const heights = new Float32Array(n).fill(f.baseHeight);
   const maxR = layout.reduce((m, L) => Math.max(m, L.r), 0) || 1;
-  const waves = [];        // active beat shockwaves: { age }
-  let prevBass = 0;
+  const waves = [];        // active beat shockwaves: { age, strength }
   // precompute each pillar's orient quaternion (surface normals never change)
   const quats = layout.map((L) =>
     new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(L.nx, L.ny, L.nz)));
@@ -107,13 +106,12 @@ export function createPillarField() {
   capMesh.instanceMatrix.needsUpdate = true;
   capMesh.instanceColor.needsUpdate = true;
 
-  function update(spectrum, levels, level, dt) {
+  function update(spectrum, levels, level, beat, dt) {
     const t = performance.now() / 1000;
     const w = CONFIG.wave;
 
-    // onset detection on the bass rising edge -> spawn a radial shockwave
-    if (levels.bass > 0.45 && levels.bass - prevBass > 0.07) waves.push({ age: 0 });
-    prevBass = levels.bass;
+    // adaptive-flux beat -> spawn a radial shockwave, scaled by the beat strength
+    if (beat.kick > 0) waves.push({ age: 0, strength: beat.kick });
     for (let k = waves.length - 1; k >= 0; k--) {
       waves[k].age += dt;
       if (waves[k].age * w.speed > maxR + w.width * 3) waves.splice(k, 1);
@@ -128,8 +126,8 @@ export function createPillarField() {
       let ringGlow = 0;
       for (let k = 0; k < waves.length; k++) {
         const d = (L.r - waves[k].age * w.speed) / w.width;
-        const env = Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay);
-        target += w.amp * env;        // height shockwave
+        const env = Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay) * waves[k].strength;
+        target += w.amp * env;        // height shockwave (scaled by beat strength)
         ringGlow += w.bright * env;   // brightness ring expanding outward on the beat
       }
       // attack-fast / decay-slow: snap up, melt down (the VU-meter soul)

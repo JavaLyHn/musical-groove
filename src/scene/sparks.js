@@ -69,11 +69,10 @@ export function createSparks() {
     }
   }
 
-  let prevBass = 0;
-  function update(levels, dt) {
-    // strong-beat burst (bass rising edge)
-    if (levels.bass > cfg.threshold && levels.bass - prevBass > cfg.edge) spawn(cfg.burst);
-    prevBass = levels.bass;
+  function update(beat, dt) {
+    // ember burst on the downbeat (kick), scaled by strength; a light sprinkle on hats
+    if (beat.kick > 0) spawn(Math.round(cfg.burst * (0.6 + 0.6 * Math.min(beat.kick, 1))));
+    if (beat.hat > 0) spawn(cfg.burstHat);
 
     for (let i = 0; i < N; i++) {
       if (age[i] >= life[i]) {                     // dead -> invisible

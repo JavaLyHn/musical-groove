@@ -66,9 +66,17 @@ export const CONFIG = {
   // floating embers: additive white sparks that burst from the core on strong
   // beats and slowly drift up + fade — the "alive, has energy" top layer.
   sparks: {
-    count: 420, burst: 44, life: 2.6, size: 2.0,
+    count: 420, burst: 44, burstHat: 10, life: 2.6, size: 2.0,
     rise: 6.0, spread: 11.0, spawnR: 38, spawnYmin: 5, spawnYmax: 17,
-    threshold: 0.5, edge: 0.08,
+  },
+
+  // spectral-flux beat detection (adaptive threshold). Fed the RAW spectrum.
+  // kick = low band -> radial ring + ember burst; hat = high band -> light sprinkle.
+  beat: {
+    // sensitivity maps to the adaptive threshold: thresh = mean + (5 - 4*sensitivity)*std.
+    // ~0.7 => mean + ~2*std, so a steady kick keeps firing instead of adapting away.
+    kick: { bandStart: 0,  bandEnd: 3,  sensitivity: 0.72, cooldown: 0.22, strength: 0.34, maxStrength: 1.3, historyLen: 43 },
+    hat:  { bandStart: 16, bandEnd: 30, sensitivity: 0.66, cooldown: 0.16, strength: 0.40, maxStrength: 1.0, historyLen: 43 },
   },
 
   // audio shaper: mel re-bin + PER-BAND normalization (each band ÷ its own rolling
