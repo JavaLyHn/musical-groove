@@ -1,4 +1,4 @@
-import { clamp, radialEnergy } from './math.js';
+import { clamp, lerp, smoothstep, radialEnergy } from './math.js';
 
 // Spherical cap: the square grid is wrapped onto a sphere of `sphereRadius`,
 // apex at the origin (sphere centre at y = -sphereRadius). The cap spans polar
@@ -44,30 +44,40 @@ export function ringBandIndex(ringT, bands) {
   return clamp(Math.round(ringT * (bands - 1)), 0, bands - 1);
 }
 
-// Idle breathing per column (phase varies per column -> neighbours bounce out of
-// sync, reading as independent cubes rather than a breathing shell).
-function idle(phase, t, cfg) {
-  return cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase));
-}
-
-// `phase` and `bias` are per-column (from the layout). bias varies the
-// reactivity (and adds a touch of static height), so adjacent columns differ ->
-// a jagged "thousands of independent cubes" skyline instead of a smooth shell.
+// `phase`, `bias`, `bandJitter` are per-column (from the layout). They make
+// adjacent columns differ -> a jagged "thousands of independent cubes" skyline.
+// `level` is the AGC-normalized overall loudness (0..1).
 //
-// AUDIO is the dominant term: `spectrum[band] * reactive` is large, so columns
-// visibly surge and fall with the music; the static centre bias and jitter are
-// small. Everything is weighted toward the centre (w) so energy concentrates there.
-export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0, bandJitter = 0) {
+// Two-sided range control:
+//  - AUDIO drives height through a power curve (thin tall spikes), but it is
+//    bounded by the AGC upstream so the loudest moment can't run away.
+//  - height = max(idleFloor, audio): a gentle, ever-present idle floor means the
+//    dome never collapses to nothing in silence.
+//  - the active radius grows with `level` but never below activeRmin, so a quiet
+//    passage shrinks the field gently instead of crushing it to a point.
+export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0, bandJitter = 0, level = 0) {
   // Per-column band scatter: neighbours read different FFT bins and move
   // independently (granular) — no single disk pulsing — while the radial trend
   // (centre = bass, edge = treble) is preserved.
   const band = ringBandIndex(ringT + cfg.bandScatter * bandJitter, spectrum.length);
-  const a = spectrum[band];                    // this column's band amplitude (0..1)
-  const w = 1 - 0.85 * ringT;                  // radial weight: centre moves most, edges least
-  const drive =
-    Math.pow(a, cfg.ampPow) * cfg.reactive * (0.5 + 0.5 * bias) + // power curve -> loud bands spike into thin tall towers
-    radialEnergy(r, cfg.centerPeak, cfg.falloff) + // small static centre bias
-    bias * cfg.jitter +                        // per-column static texture (independent cubes)
-    idle(phase, t, cfg);                       // gentle breathing so it's never dead
-  return cfg.baseHeight + drive * w;
+  const a = spectrum[band];
+
+  // Active radius: grows with loudness, floored at activeRmin (no collapse to a point).
+  const activeR = lerp(cfg.activeRmin, 1.0, level);
+  const radial = 1 - smoothstep(activeR, activeR + cfg.activeSoft, ringT); // 1 inside, soft to 0 beyond
+
+  // Audio-driven height (power curve -> loud bands spike into thin tall towers).
+  const audioH =
+    (Math.pow(a, cfg.ampPow) * cfg.reactive * (0.5 + 0.5 * bias) +
+      radialEnergy(r, cfg.centerPeak, cfg.falloff)) * radial;
+
+  // Ever-present idle floor: per-column shimmer + a slow radial swell + a little
+  // per-column static height, so the dome breathes and glows faintly in silence.
+  const idleH =
+    (cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase)) +
+      cfg.idleAmp * 0.6 * (0.5 + 0.5 * Math.sin(t * 0.3 + r * 0.12)) +
+      bias * cfg.jitter) * Math.max(radial, cfg.idleFloorR);
+
+  // height = max(idle floor, audio): audio lifts above the floor, never below it.
+  return cfg.baseHeight + Math.max(idleH, audioH);
 }

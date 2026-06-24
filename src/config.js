@@ -40,8 +40,13 @@ export const CONFIG = {
     attack: 0.5,             // fast rise (surge up)
     decay: 0.92,             // slow fall per 1/60s (melt down)
     brightSpan: 0.62,        // a column is fully white-hot at height = baseHeight + reactive*brightSpan
-    brightPow: 1.5,          // emissive = colorRamp(pow(hNorm, brightPow)) -> only the tallest go white-hot
+    brightPow: 1.8,          // emissive curve exponent
+    brightFloor: 0.15,       // dark-blue floor: below this (after pow) a column stays dark, not lit ->
+                             //   dark field + hot core contrast holds even at the loudest moment
     radialDim: 0.30,         // mild edge dimming for depth (height now carries most of the brightness)
+    activeRmin: 0.6,         // quietest active radius (never collapses to a point); grows to 1.0 with level
+    activeSoft: 0.25,        // soft falloff width at the active-radius edge
+    idleFloorR: 0.3,         // idle floor reaches a bit past the active radius so edges keep faint life
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
     pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes
@@ -68,6 +73,10 @@ export const CONFIG = {
     threshold: 0.5, edge: 0.08,
   },
 
+  // auto-gain: rolling-peak normalization of the audio input so the picture is
+  // anchored to the same look regardless of how loud/quiet the track is.
+  agc: { tau: 2.5, floor: 0.32 },   // tau = peak decay time (s); floor caps the max gain at 1/floor
+
   core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0 }, // dim + cool
   stars: { count: 1400, radius: 220 },
   // STATIC camera (no orbit/bob) — LOW oblique 3/4 view across the field so the
@@ -78,7 +87,7 @@ export const CONFIG = {
   // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
   // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
   camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, orbitSpeed: 0, bob: 0 },
-  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.86, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
+  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.90, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
   fpsCap: 30,                // preset overrides this

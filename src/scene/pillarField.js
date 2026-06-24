@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { buildPillarLayout, pillarTargetHeight } from '../util/field.js';
-import { colorRamp, clamp } from '../util/math.js';
+import { colorRamp, clamp, smoothstep } from '../util/math.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -35,7 +35,7 @@ export function createPillarField() {
         'float _top = smoothstep(0.80, 1.0, vYNorm);\n' +
         'totalEmissiveRadiance *= vColor;\n' +
         'totalEmissiveRadiance *= _segMask;\n' +
-        'totalEmissiveRadiance += vColor * _top * 0.95 * _segMask;'); // bright lid keeps the gap lines -> a white-hot CUBE, not a blob of light
+        'totalEmissiveRadiance += vColor * _top * 0.70 * _segMask;'); // bright lid (headroom so tops don't white-out) keeps the gap lines -> white-hot CUBE
   };
 
   const mesh = new THREE.InstancedMesh(geo, mat, n);
@@ -70,7 +70,9 @@ export function createPillarField() {
   const whiteHeight = f.baseHeight + f.reactive * f.brightSpan;
   function heightBrightness(h) {
     const hNorm = clamp((h - f.baseHeight) / (whiteHeight - f.baseHeight), 0, 1);
-    return Math.pow(hNorm, f.brightPow);
+    // dark-blue floor: short/medium columns stay dark; only the tallest ramp to
+    // white. This is what keeps the dark-field + hot-core contrast even when loud.
+    return smoothstep(f.brightFloor, 1.0, Math.pow(hNorm, f.brightPow));
   }
 
   function writeInstance(i, h, ringGlow = 0) {
@@ -108,6 +110,8 @@ export function createPillarField() {
   function update(spectrum, levels, dt) {
     const t = performance.now() / 1000;
     const w = CONFIG.wave;
+    // overall loudness (bass-weighted) drives the active radius (0..1)
+    const level = clamp(0.5 * levels.bass + 0.3 * levels.mid + 0.2 * levels.treble, 0, 1);
 
     // onset detection on the bass rising edge -> spawn a radial shockwave
     if (levels.bass > 0.45 && levels.bass - prevBass > 0.07) waves.push({ age: 0 });
@@ -122,7 +126,7 @@ export function createPillarField() {
 
     for (let i = 0; i < n; i++) {
       const L = layout[i];
-      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f, L.phase, L.bias, L.bandJitter);
+      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f, L.phase, L.bias, L.bandJitter, level);
       let ringGlow = 0;
       for (let k = 0; k < waves.length; k++) {
         const d = (L.r - waves[k].age * w.speed) / w.width;
