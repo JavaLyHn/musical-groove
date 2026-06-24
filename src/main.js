@@ -51,7 +51,7 @@ function frame() {
   core.update(levels.bass, dt);
   stars.update(dt);
   rig.update(dt);
-  updateFx(dt);
+  updateFx(dt, levels.bass);
   composer.render();
 }
 requestAnimationFrame(frame);

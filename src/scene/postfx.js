@@ -58,8 +58,12 @@ export function createComposer(renderer, scene, camera) {
     bloom.setSize(w, h);
     final.uniforms.uResolution.value.set(w, h);
   }
-  function update(dt) {
+  let bloomPulse = 0;
+  function update(dt, bass = 0) {
     final.uniforms.uTime.value += dt;
+    // beat bloom spike: fast attack, smooth decay (堆芯爆闪) — modest so it stays cool
+    bloomPulse = Math.max(bloomPulse * (1 - 5 * dt), bass);
+    bloom.strength = CONFIG.post.bloomStrength + bloomPulse * CONFIG.post.bloomSpike;
   }
   setSize(window.innerWidth, window.innerHeight);
   return { composer, setSize, update };

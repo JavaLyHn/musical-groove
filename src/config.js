@@ -44,7 +44,7 @@ export const CONFIG = {
   stars: { count: 1400, radius: 200 },
   // STATIC camera (no orbit/bob) — elevated, looking DOWN onto the field (俯瞰 + near→far stretch)
   camera: { fov: 60, height: 78, distance: 72, orbitSpeed: 0, bob: 0, lookAtY: 0 },
-  post: { bloomStrength: 0.16, bloomRadius: 0.5, bloomThreshold: 0.78, vignette: 1.2, aberration: 0.01, grain: 0.028 },
+  post: { bloomStrength: 0.16, bloomRadius: 0.5, bloomThreshold: 0.78, vignette: 1.2, aberration: 0.01, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets)
   fpsCap: 60,
