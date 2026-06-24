@@ -36,10 +36,10 @@ function injectTheme() {
     }
     .lil-gui.lyhn-gui .children,
     .lil-gui.lyhn-gui .lil-gui{ background:transparent !important; }
-    /* root title — the artistic signature face, gradient-filled to match LyHN */
+    /* root title — clean CJK-capable face with the same cool→lavender gradient fill */
     .lil-gui.lyhn-gui.root > .title{
-      font-family:'Snell Roundhand','Zapfino','Apple Chancery',cursive;
-      font-size:22px; font-weight:700; letter-spacing:.5px; padding:9px 14px 7px;
+      font-family:-apple-system,'PingFang SC','Hiragino Sans GB',system-ui,sans-serif;
+      font-size:15px; font-weight:600; letter-spacing:.28em; padding:11px 14px 9px;
       background:linear-gradient(115deg,#5FD0E0,#9A8FE6 58%,#E8ECFF) !important;
       -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
       border-bottom:1px solid rgba(150,175,240,0.16);
@@ -69,7 +69,7 @@ function injectTheme() {
 /** @param {{ rig: { state: any }, renderer: any }} refs */
 export function createGui({ rig, renderer }) {
   injectTheme();
-  const gui = new GUI({ title: 'LyHN', autoPlace: false }); // we place it ourselves
+  const gui = new GUI({ title: '参数面板', autoPlace: false }); // we place it ourselves
   gui.domElement.classList.add('lyhn-gui');
   document.body.appendChild(gui.domElement);
 
