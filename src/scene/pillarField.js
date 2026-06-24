@@ -5,6 +5,7 @@ import { buildPillarLayout } from '../util/field.js';
 const UP = new THREE.Vector3(0, 1, 0);
 const RIPPLES = 10;
 const COVER_TINT_AMT = 0.42; // tint strength when an album cover is present (0 = off)
+const HIST_LEN = 72;         // band-history rows the radial delay reads back into (~1.2s @60fps)
 
 // GPU heightfield: the per-instance ELEVATION is computed in the vertex shader
 // from per-band uniforms + simplex noise, so each frequency band drives its own
@@ -17,6 +18,7 @@ const COVER_TINT_AMT = 0.42; // tint strength when an album cover is present (0 
 export function createPillarField() {
   const f = CONFIG.field;
   const w = CONFIG.wave;
+  const m = CONFIG.motion;
   const layout = buildPillarLayout(CONFIG.grid, CONFIG.spacing, CONFIG.sphereRadius, CONFIG.capAngle);
   const n = layout.length;
 
@@ -41,6 +43,15 @@ export function createPillarField() {
   geo.setAttribute('aRing', new THREE.InstancedBufferAttribute(aRing, 1));
   geo.setAttribute('aRnd', new THREE.InstancedBufferAttribute(aRnd, 1));
   geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(aPhase, 1));
+
+  // Band-envelope HISTORY texture (x = 8 bands, y = time rows). Each frame we push the
+  // newest envelopes as the LAST row and shift older rows toward 0; the vertex shader
+  // reads a row `radius * uMaxDelayRows` back, so a beat sweeps centre -> rim.
+  const histData = new Float32Array(8 * HIST_LEN);
+  const histTex = new THREE.DataTexture(histData, 8, HIST_LEN, THREE.RedFormat, THREE.FloatType);
+  histTex.minFilter = THREE.NearestFilter;
+  histTex.magFilter = THREE.NearestFilter;
+  histTex.needsUpdate = true;
 
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0e22, roughness: 0.6, metalness: 0.0,
@@ -70,6 +81,10 @@ export function createPillarField() {
       uWarmth: { value: 0 }, uBrightness: { value: 0 }, uSharpness: { value: 0 },
       // album-art tint: recolours the field toward the current cover's dominant hue
       uCoverTint: { value: new THREE.Color(1, 1, 1) }, uCoverTintAmt: { value: 0 },
+      // radial phase delay: per-band history + how far (rows) the rim lags the centre
+      uHistory: { value: histTex },
+      uMaxDelayRows: { value: CONFIG.motion.radialDelay },
+      uLevelFloor: { value: CONFIG.motion.levelFloor },
     });
     U = shader.uniforms;
 
@@ -99,8 +114,8 @@ export function createPillarField() {
   }
   mesh.instanceMatrix.needsUpdate = true;
 
-  // ---- per-frame CPU state: 8 smoothed bands + ripple ring buffer ----
-  const band8 = new Float32Array(8);
+  // ---- per-frame CPU state: 8 per-band envelopes + ripple ring buffer ----
+  const bandEnv = new Float32Array(8);
   const ripples = Array.from({ length: RIPPLES }, () => ({ pos: new THREE.Vector2(), time: -1e3, strength: 0, type: 0 }));
   let rippleIdx = 0;
   const RIPPLE_MAX_AGE = 1.6;
@@ -133,18 +148,26 @@ export function createPillarField() {
   let levelSmooth = 0;
   function update(spectrum, levels, level, beat, timbre, dt) {
     const t = performance.now() / 1000;
-    const fall = Math.pow(f.decay, dt * 60);
     // release tail: level rises fast but melts down slowly when the music drops/stops
     levelSmooth += (level - levelSmooth) * (level > levelSmooth ? 0.4 : 0.04);
 
-    // aggregate the 64 normalized bands into 8 perceptual groups, attack/decay smoothed
+    // aggregate the normalized bands into 8 groups, each with its OWN time scale: low
+    // bands rise + fall slowly (a big swell), high bands snap up + fall fast (sparkle).
     const per = Math.max(1, Math.floor(spectrum.length / 8));
     for (let b = 0; b < 8; b++) {
       let s = 0;
       for (let i = 0; i < per; i++) s += spectrum[b * per + i] || 0;
       s /= per;
-      band8[b] = s > band8[b] ? band8[b] + (s - band8[b]) * f.attack : band8[b] * fall;
+      const fb = b / 7; // 0 = lowest band, 1 = highest
+      const atk = m.bandAtkSlow + (m.bandAtkFast - m.bandAtkSlow) * fb;
+      const decF = Math.pow(m.bandDecSlow + (m.bandDecFast - m.bandDecSlow) * fb, dt * 60);
+      bandEnv[b] = s > bandEnv[b] ? bandEnv[b] + (s - bandEnv[b]) * atk : bandEnv[b] * decF;
     }
+    // push the newest envelopes as the last history row (older rows shift toward 0),
+    // so the vertex shader can read each ring's value delayed by its radius.
+    histData.copyWithin(0, 8);
+    histData.set(bandEnv, (HIST_LEN - 1) * 8);
+    histTex.needsUpdate = true;
 
     // beats -> ripples: kick = central radial ring (cyan), hat = small offset white pop
     if (beat.kick > 0) spawnRipple(t, beat.kick, 0, 0, 0);
@@ -161,8 +184,8 @@ export function createPillarField() {
     U.uTime.value = t;
     U.uLevel.value = levelSmooth;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
-    U.uSubBass.value = band8[0]; U.uBass.value = band8[1]; U.uLowMid.value = band8[2]; U.uMid.value = band8[3];
-    U.uHighMid.value = band8[4]; U.uPresence.value = band8[5]; U.uBrilliance.value = band8[6]; U.uAir.value = band8[7];
+    U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
+    U.uHighMid.value = bandEnv[4]; U.uPresence.value = bandEnv[5]; U.uBrilliance.value = bandEnv[6]; U.uAir.value = bandEnv[7];
     for (let i = 0; i < RIPPLES; i++) {
       U.uRipplePos.value[i].copy(ripples[i].pos);
       U.uRippleTST.value[i].set(ripples[i].time, ripples[i].strength, ripples[i].type);
@@ -210,11 +233,14 @@ attribute float aRing;
 attribute float aRnd;
 attribute float aPhase;
 uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp;
-uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, uAir;
+uniform sampler2D uHistory;
+uniform float uMaxDelayRows, uLevelFloor;
 uniform vec2 uRipplePos[${RIPPLES}];
 uniform vec3 uRippleTST[${RIPPLES}];
 uniform float uRippleSpeed, uRippleWidth, uRippleFade;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
+// read band b (0..7) from the history texture at time-row coord y (0..1)
+float histBand(float b, float y){ return texture2D(uHistory, vec2((b + 0.5) / 8.0, y)).r; }
 ${SNOISE}`;
 
 const VERT_BEGIN = `#include <begin_vertex>
@@ -229,21 +255,30 @@ float baseN = (snoise(mp) + 1.0) * 0.5;
 float swell = sin(aField.x * 0.04 + aField.y * 0.03 - uTime * 0.5) * 0.5 + 0.5;
 float idle = uIdleAmp * mix(baseN, swell, 0.5);
 
-// per-band SPATIAL MOTIFS (each band 0..1, already per-band normalized)
+// RADIAL PHASE DELAY (the hero): read this column's bands from the history texture
+// delayed by its radius. centre = now, rim = up to uMaxDelayRows frames ago -> a beat
+// rises at the core and the swell sweeps visibly outward as a ring, not all at once.
+float _off = ring * uMaxDelayRows;
+float _y = clamp((${HIST_LEN}.0 - 0.5 - _off) / ${HIST_LEN}.0, 0.5 / ${HIST_LEN}.0, (${HIST_LEN}.0 - 0.5) / ${HIST_LEN}.0);
+float b0 = histBand(0.0, _y), b1 = histBand(1.0, _y), b2 = histBand(2.0, _y), b3 = histBand(3.0, _y);
+float b4 = histBand(4.0, _y), b5 = histBand(5.0, _y), b6 = histBand(6.0, _y), b7 = histBand(7.0, _y);
+
+// per-band SPATIAL MOTIFS, each on its OWN (delayed) envelope — no shared common mode
 float subRegion = smoothstep(0.55, 0.0, ring);
-float subLift = uSubBass * subRegion * 6.0;
+float subLift = b0 * subRegion * 6.0;
 float bN = snoise(aField * 0.08 - vec2(0.0, uTime * 0.2));
 float bassRegion = smoothstep(0.7, 0.1, ring + bN * 0.08);
-float bassLift = uBass * bassRegion * smoothstep(0.0, 1.0, aRnd + 0.3) * 5.0;
+float bassLift = b1 * bassRegion * smoothstep(0.0, 1.0, aRnd + 0.3) * 5.0;
 float lmN = snoise(aField * 0.05 + vec2(uTime * 0.1, 0.0));
-float lowMidLift = uLowMid * (lmN * 0.5 + 0.5) * 3.0;
+float lowMidLift = b2 * (lmN * 0.5 + 0.5) * 3.0;
 float river = sin(aField.x * 0.12 + aField.y * 0.12 + snoise(aField * 0.08) * 2.0 - uTime * 2.0);
-float midLift = uMid * max(0.0, river) * 3.5;
+float midLift = b3 * max(0.0, river) * 3.5;
 float hmRegion = smoothstep(0.2, 0.95, ring);
 float hmLift = 0.0;
-if (fract(aRnd * 13.3) > 0.78) hmLift = uHighMid * hmRegion * fract(aRnd * 7.7) * 4.5;
-float airLift = (uPresence + uBrilliance + uAir) * 0.33 * smoothstep(0.3, 1.0, ring) * fract(aRnd * 5.3) * 2.0;
-float audio = (subLift + bassLift + lowMidLift + midLift + hmLift + airLift) * uLevel * uHeightScale;
+if (fract(aRnd * 13.3) > 0.78) hmLift = b4 * hmRegion * fract(aRnd * 7.7) * 4.5;
+float airLift = (b5 + b6 + b7) * 0.33 * smoothstep(0.3, 1.0, ring) * fract(aRnd * 5.3) * 2.0;
+// common mode KILLED: loudness only scales height uLevelFloor..1; per-band drive decides WHAT moves
+float audio = (subLift + bassLift + lowMidLift + midLift + hmLift + airLift) * uHeightScale * mix(uLevelFloor, 1.0, uLevel);
 
 float elev = idle + audio;
 

@@ -61,6 +61,20 @@ export const CONFIG = {
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)
   },
 
+  // MOTION over time + space. The hero is the RADIAL PHASE DELAY: each ring reads the
+  // band history delayed by its radius, so a beat sweeps from the centre outward as a
+  // visible wave instead of the whole field punching at once. Plus per-band envelopes
+  // (each band its own attack/decay) and a killed common mode (loudness barely scales
+  // height) so low freq pumps slowly at the centre while highs jitter on the rim.
+  motion: {
+    radialDelay: 36,    // delay span centre->rim, in history rows (~0.6s at 60fps)
+    levelFloor: 0.65,   // common-mode kill: loudness only scales height 0.65..1; per-band drive decides WHAT moves
+    bandAtkSlow: 0.16,  // low-band attack: slow rise (big swell)
+    bandAtkFast: 0.55,  // high-band attack: snappy rise (sharp hits)
+    bandDecSlow: 0.95,  // low-band decay per 60fps: slow melt
+    bandDecFast: 0.85,  // high-band decay per 60fps: fast fall (sparkle)
+  },
+
   // depth fog -> from mid-field outward the far cubes sink into the cool
   // deep-space color while the foreground/core stay bright. The camera rig
   // re-derives near/far from the camera distance so the depth look holds while
