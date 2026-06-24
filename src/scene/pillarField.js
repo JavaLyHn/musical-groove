@@ -231,6 +231,10 @@ export function createPillarField() {
     U.uTime.value = t;
     U.uLevel.value = levelSmooth;
     U.uIdleMix.value = idleMix;
+    // live-tunable motion uniforms so the ?gui panel takes effect in real time
+    U.uMaxDelayRows.value = m.radialDelay;
+    U.uLevelFloor.value = m.levelFloor;
+    U.uWaveAmp.value = m.waveAmp;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
     U.uHighMid.value = bandEnv[4]; U.uPresence.value = bandEnv[5]; U.uBrilliance.value = bandEnv[6]; U.uAir.value = bandEnv[7];

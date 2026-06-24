@@ -58,6 +58,12 @@ scene.add(atmosphere.sprite);
 const rig = createCameraRig(camera, scene);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
 
+// ?gui — real-time control panel (lil-gui). Dynamically imported so it (and lil-gui) are
+// code-split out of the wallpaper bundle and only loaded when you actually open it.
+if (new URLSearchParams(location.search).has('gui')) {
+  import('./gui.js').then(({ createGui }) => createGui({ rig, renderer })).catch(() => {});
+}
+
 // Swap the simulated source for real system audio (prefers a BlackHole-style
 // loopback device; falls back to the default input). Same interface -> no
 // visual changes. Returns a status label for the UI.
