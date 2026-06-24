@@ -3,6 +3,7 @@ import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js
 import { createPillarField } from './scene/pillarField.js';
 import { createCore } from './scene/core.js';
 import { createStarfield } from './scene/starfield.js';
+import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
 
 const canvas = document.getElementById('app');
@@ -20,6 +21,8 @@ scene.add(core.group);
 const stars = createStarfield();
 scene.add(stars.points);
 
+const rig = createCameraRig(camera);
+
 const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -28,6 +31,7 @@ function frame() {
   field.update(audio.getSpectrum(), levels, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
+  rig.update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
