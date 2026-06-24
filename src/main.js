@@ -33,6 +33,9 @@ let audio = createSimulatedAudioSource();
 const shaper = createAudioShaper(CONFIG.audioBins, CONFIG.bands);
 // Spectral-flux beat detection (adaptive threshold), fed the raw spectrum.
 const beatDetector = createBeatDetector();
+// Broadband onset (positive spectral flux of the shaped bands) — the energy that
+// drives the independent ripple + meteor triggers (their own sensitivity + cooldown).
+const prevSpec = new Float32Array(CONFIG.bands);
 const field = createPillarField();
 scene.add(field.mesh);
 
@@ -96,7 +99,10 @@ function frame() {
   const raw = audio.getSpectrum();
   const beat = beatDetector.process(raw, dt);
   const { spectrum, levels, level, warmth, brightness, sharpness } = shaper.process(raw, dt);
-  field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt);
+  let flux = 0;
+  for (let i = 0; i < spectrum.length; i++) { const d = spectrum[i] - prevSpec[i]; if (d > 0) flux += d; prevSpec[i] = spectrum[i]; }
+  const onset = flux / spectrum.length;
+  field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset);
   core.update(levels.bass, dt);
   stars.update(dt);
   sparks.update(beat, dt);

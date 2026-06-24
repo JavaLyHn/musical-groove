@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { buildPillarLayout } from '../util/field.js';
+import { createTrigger } from '../util/trigger.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
-const RIPPLES = 10;
+const RIPPLES = 18;
 const ACCENTS = 6;           // concurrent sparse-accent slots (sparks on transients)
 const COVER_TINT_AMT = 0.42; // tint strength when an album cover is present (0 = off)
 const HIST_LEN = 72;         // band-history rows the radial delay reads back into (~1.2s @60fps)
@@ -68,6 +69,8 @@ export function createPillarField() {
       uHeightScale: { value: f.heightScale },
       uBaseHeight: { value: f.baseHeight },
       uIdleAmp: { value: f.idleAmp },
+      uIdleMix: { value: 1 }, // 0 during music, fades to 1 in silent standby
+
       uSubBass: { value: 0 }, uBass: { value: 0 }, uLowMid: { value: 0 }, uMid: { value: 0 },
       uHighMid: { value: 0 }, uPresence: { value: 0 }, uBrilliance: { value: 0 }, uAir: { value: 0 },
       uRipplePos: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector2()) },
@@ -165,8 +168,13 @@ export function createPillarField() {
     }
   }
 
+  // ripples are their own reaction now: an onset-fed (sensitivity, cooldown) trigger
+  const rippleTrigger = createTrigger(CONFIG.ripple);
+  let silentFor = 0;  // seconds the music has been below the idle-silence threshold
+  let idleMix = 1;    // 0 = music drives everything, 1 = autonomous standby wave
+
   let levelSmooth = 0;
-  function update(spectrum, levels, level, beat, timbre, dt) {
+  function update(spectrum, levels, level, beat, timbre, dt, onset = 0) {
     const t = performance.now() / 1000;
     // release tail: level rises fast but melts down slowly when the music drops/stops
     levelSmooth += (level - levelSmooth) * (level > levelSmooth ? 0.4 : 0.04);
@@ -189,16 +197,28 @@ export function createPillarField() {
     histData.set(bandEnv, (HIST_LEN - 1) * 8);
     histTex.needsUpdate = true;
 
-    // beats -> ripples: kick = central radial ring (cyan), hat = small offset white pop
-    if (beat.kick > 0) spawnRipple(t, beat.kick, 0, 0, 0);
-    if (beat.hat > 0) {
-      const a = aPhase[(rippleIdx * 7919) % n] || 0; // cheap varied angle
-      const d = 20 + (aRnd[(rippleIdx * 104729) % n] || 0.5) * 70;
-      spawnRipple(t, beat.hat * 0.6, 1, Math.cos(a) * d, Math.sin(a) * d);
+    // independent RIPPLE trigger (sensitivity + cooldown, fed the audio onset). With
+    // cooldown 0 every strong onset fires a central cyan ring; the loudest also drop an
+    // offset white pop. Overlapping rings interfere -> "breathing" becomes "waving".
+    const rip = rippleTrigger.fire(onset);
+    if (rip > 0) {
+      spawnRipple(t, Math.min(rip * 4.0, 1.3), 0, 0, 0);
+      if (rip > CONFIG.ripple.sensitivity * 2.0) {
+        const a = aPhase[(rippleIdx * 7919) % n] || 0; // cheap varied angle
+        const d = 20 + (aRnd[(rippleIdx * 104729) % n] || 0.5) * 70;
+        spawnRipple(t, Math.min(rip * 3.0, 1.0), 1, Math.cos(a) * d, Math.sin(a) * d);
+      }
     }
     for (let i = 0; i < RIPPLES; i++) {
       if (ripples[i].strength > 0 && t - ripples[i].time > RIPPLE_MAX_AGE) ripples[i].strength = 0;
     }
+
+    // idle standby: fade the autonomous wave IN after sustained silence (debounce), OUT
+    // when music returns (transition) — never fights the music, never flickers.
+    if (level < m.idleSilence) silentFor += dt; else silentFor = 0;
+    const idleTarget = silentFor > m.idleDebounce ? 1 : 0;
+    const idleStep = dt / Math.max(0.001, m.idleTransition);
+    idleMix += Math.max(-idleStep, Math.min(idleStep, idleTarget - idleMix));
 
     // beats -> sparse hard accents: a few random columns spark to max + flash
     if (beat.kick > 0) spawnAccent(t, Math.min(1.0, beat.kick), Math.random() * 100);
@@ -210,6 +230,7 @@ export function createPillarField() {
     if (!U) return; // material not compiled yet
     U.uTime.value = t;
     U.uLevel.value = levelSmooth;
+    U.uIdleMix.value = idleMix;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
     U.uHighMid.value = bandEnv[4]; U.uPresence.value = bandEnv[5]; U.uBrilliance.value = bandEnv[6]; U.uAir.value = bandEnv[7];
@@ -262,7 +283,7 @@ attribute vec2 aField;
 attribute float aRing;
 attribute float aRnd;
 attribute float aPhase;
-uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp;
+uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp, uIdleMix;
 uniform sampler2D uHistory;
 uniform float uMaxDelayRows, uLevelFloor;
 uniform float uMid;
@@ -283,11 +304,12 @@ vRing = aRing;
 vRnd = aRnd;
 float ring = aRing;
 
-// idle floor: a gentle, ever-present swell so the whole dome is always alive
+// idle STANDBY swell: gated by uIdleMix — absent while music plays (it would only fight
+// the audio), fades in as an autonomous soft wave when the track goes quiet.
 vec2 mp = aField * 0.04 + vec2(uTime * 0.08, uTime * 0.05);
 float baseN = (snoise(mp) + 1.0) * 0.5;
 float swell = sin(aField.x * 0.04 + aField.y * 0.03 - uTime * 0.5) * 0.5 + 0.5;
-float idle = uIdleAmp * mix(baseN, swell, 0.5);
+float idle = uIdleAmp * mix(baseN, swell, 0.5) * uIdleMix;
 
 // RADIAL PHASE DELAY (the hero): read this column's bands from the history texture
 // delayed by its radius. centre = now, rim = up to uMaxDelayRows frames ago -> a beat

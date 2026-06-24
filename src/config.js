@@ -84,7 +84,21 @@ export const CONFIG = {
     accentHeight: 9.0,  // how tall an accent punches
     accentDecay: 7.0,   // accent fall-off (e^-age*decay): ~0.15s flash
     accentThresh: 0.93, // sparsity: columns with hash >= this spike (~7% per transient)
+    // IDLE standby wave: don't hard-cut a floor — fade an autonomous soft wave IN only
+    // after sustained silence (debounce), and OUT when music returns (transition). This
+    // keeps standby from fighting the music and cures the quiet-section collapse/flicker.
+    idleSilence: 0.045, // overall level below this counts as "silent"
+    idleDebounce: 1.0,  // seconds of silence before the standby wave fades in
+    idleTransition: 1.0,// seconds to fade the standby wave in / out
   },
+
+  // RIPPLES are a first-class reaction now: an independent (sensitivity, cooldown) pair
+  // fed the audio onset. cooldown 0 = fire on every strong-enough beat, so rings overlap
+  // into interference (the radial phase delay was its prototype). Low threshold = lively.
+  ripple: { sensitivity: 0.1, cooldown: 0 },
+  // METEORS: rare, ceremonial streaks — only the biggest transients, with a long cooldown
+  // (frames), so they read as the occasional shooting star, not a constant spark cloud.
+  meteor: { sensitivity: 0.2, cooldown: 200 },
 
   // depth fog -> from mid-field outward the far cubes sink into the cool
   // deep-space color while the foreground/core stay bright. The camera rig
@@ -132,8 +146,17 @@ export const CONFIG = {
   // at the core (targetY). Higher pitch drops the core off the horizon into the
   // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
   // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
-  camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, azimuthDeg: 12, orbitSpeed: 0, bob: 0 },
-  post: { bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.80, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
+  // Aligned with the reference: low oblique view (pitch 25), azimuth 120, slow auto-spin
+  // (orbitSpeed ~0.2 rad/s). distance/fov stay tuned for OUR world scale (~10x the
+  // reference — its 85 would bury the camera inside our field); dial them live with ?gui.
+  camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0 },
+  post: {
+    bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.80,
+    vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06,
+    // single adjustable ACCENT colour washed over the bloom (the cool/tech glow). Set
+    // accentIntensity 0 to disable; swap accentColor to shift the whole mood blue<->warm.
+    accentColor: '#5FD0E0', accentIntensity: 0.0,
+  },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
   fpsCap: 30,                // preset overrides this
