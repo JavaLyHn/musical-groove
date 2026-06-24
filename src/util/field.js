@@ -5,6 +5,12 @@ import { clamp, radialEnergy } from './math.js';
 // angle [0, capAngle] from the apex, so edges curve down and away -> a curved
 // planetary horizon. The outward sphere normal is already unit length.
 export function buildPillarLayout(grid, spacing, sphereRadius, capAngle) {
+  // Force an ODD grid so one column lands exactly at the centre (px=pz=0). With
+  // an even grid the centre falls between cells, leaving a continuous gap along
+  // the x=0 plane that runs straight away from the camera -> a black seam that
+  // splits the bright core in two. An odd grid puts a solid ridge of columns
+  // down the centre instead, so there is no seam to view edge-on.
+  if (grid % 2 === 0) grid += 1;
   const c = (grid - 1) / 2;
   const maxR = Math.hypot(c * spacing, c * spacing) || 1;
   const out = [];

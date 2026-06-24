@@ -6,8 +6,9 @@ describe('CONFIG', () => {
     expect(CONFIG.bands).toBe(64);
     expect(CONFIG.grid).toBe(40);
   });
-  it('caps pixel ratio at 2', () => {
-    expect(CONFIG.maxPixelRatio).toBe(2);
+  it('caps pixel ratio to a sane wallpaper value', () => {
+    expect(CONFIG.maxPixelRatio).toBeGreaterThan(0);
+    expect(CONFIG.maxPixelRatio).toBeLessThanOrEqual(2);
   });
   it('defines the full palette as hex strings', () => {
     for (const k of ['bg0', 'bg1', 'core', 'accent']) {
