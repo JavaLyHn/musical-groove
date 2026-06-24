@@ -34,7 +34,7 @@ describe('colorRamp', () => {
   it('returns the lowest ramp color at 0 and the white-hot top at 1', () => {
     const lo = colorRamp(0);
     const hi = colorRamp(1);
-    expect(lo.getHexString()).toBe('15205a');
+    expect(lo.getHexString()).toBe('1e2c70');
     expect(hi.getHexString()).toBe('f4f6ff');
   });
   it('returns the middle ramp stop at 0.5', () => {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { buildPillarLayout, pillarTargetHeight } from '../util/field.js';
-import { colorRamp, springStep } from '../util/math.js';
+import { colorRamp } from '../util/math.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -47,6 +47,9 @@ export function createPillarField() {
 
   const heights = new Float32Array(n).fill(f.baseHeight);
   const vels = new Float32Array(n);
+  const maxR = layout.reduce((m, L) => Math.max(m, L.r), 0) || 1;
+  const waves = [];        // active beat shockwaves: { age }
+  let prevBass = 0;
   const _m = new THREE.Matrix4();
   const _q = new THREE.Quaternion();
   const _p = new THREE.Vector3();
@@ -76,12 +79,31 @@ export function createPillarField() {
 
   function update(spectrum, levels, dt) {
     const t = performance.now() / 1000;
+    const w = CONFIG.wave;
+
+    // onset detection on the bass rising edge -> spawn a radial shockwave
+    if (levels.bass > 0.45 && levels.bass - prevBass > 0.07) waves.push({ age: 0 });
+    prevBass = levels.bass;
+    for (let k = waves.length - 1; k >= 0; k--) {
+      waves[k].age += dt;
+      if (waves[k].age * w.speed > maxR + w.width * 3) waves.splice(k, 1);
+    }
+
+    // slow fall is framerate-independent (f.decay is defined per 1/60 s)
+    const fall = Math.pow(f.decay, dt * 60);
+
     for (let i = 0; i < n; i++) {
       const L = layout[i];
-      const target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f);
-      const step = springStep(heights[i], vels[i], target, f.stiffness, f.damping, dt);
-      heights[i] = Math.max(f.baseHeight, step.value);
-      vels[i] = step.vel;
+      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f);
+      for (let k = 0; k < waves.length; k++) {
+        const d = (L.r - waves[k].age * w.speed) / w.width;
+        target += w.amp * Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay);
+      }
+      // attack-fast / decay-slow: snap up, melt down (the VU-meter soul)
+      let h = heights[i];
+      h = target > h ? h + (target - h) * f.attack
+                     : f.baseHeight + (h - f.baseHeight) * fall;
+      heights[i] = Math.max(f.baseHeight, h);
       writeInstance(i, heights[i]);
     }
     mesh.instanceMatrix.needsUpdate = true;
