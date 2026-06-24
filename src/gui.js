@@ -1,47 +1,77 @@
 // @ts-check
-// Real-time control panel (lil-gui), opened by clicking the LyHN signature. Every reactive
-// event follows the reference's clean (sensitivity + cooldown) pair. These sliders write
-// straight to CONFIG / the camera state / the renderer — all read live each frame — so the
-// look can be dialled in the browser instead of round-tripping screen recordings.
+// Live control panel (lil-gui), opened by clicking the LyHN signature. Every reactive
+// event follows the reference's clean (sensitivity + cooldown) pair; sliders write
+// straight to CONFIG / camera state / renderer, all read live each frame — tune in the
+// browser instead of round-tripping recordings. Themed into a transparent glass panel
+// that matches the scene, pinned directly under the signature, with a Reset-to-defaults.
 import GUI from 'lil-gui';
 import { CONFIG } from './config.js';
 
-// Transparent, glassy theme matching the cool/tech palette; panel sits under the signature.
+// Transparent glass theme + position. !important is needed to beat lil-gui's own opaque
+// defaults; autoPlace:false (below) means we own the placement entirely.
 function injectTheme() {
   if (document.getElementById('lyhn-gui-theme')) return;
   const s = document.createElement('style');
   s.id = 'lyhn-gui-theme';
   s.textContent = `
-    .lil-gui.lyhn-gui.root{
-      position:fixed; top:56px; left:16px; right:auto; z-index:11;
-      --background-color:rgba(11,19,48,0.38);
-      --title-background-color:rgba(11,19,48,0.0);
-      --title-text-color:#bfeaf2;
-      --text-color:#cfd7f6;
-      --widget-color:rgba(95,208,224,0.14);
-      --hover-color:rgba(95,208,224,0.26);
-      --focus-color:rgba(130,205,235,0.36);
-      --number-color:#bcaff4;
-      --string-color:#7fe0ee;
-      --font-size:11px; --input-font-size:11px; --width:266px;
-      -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
-      border:1px solid rgba(130,165,235,0.22); border-radius:12px;
-      box-shadow:0 10px 44px rgba(0,0,0,.40);
+    .lil-gui.lyhn-gui{
+      --title-background-color:rgba(0,0,0,0);
+      --title-text-color:#e3e9ff;
+      --text-color:#d2dbf6;
+      --widget-color:rgba(120,170,235,0.12);
+      --hover-color:rgba(95,208,224,0.22);
+      --focus-color:rgba(95,208,224,0.40);
+      --number-color:#c4b7ff;
+      --string-color:#86e6f4;
+      --font-size:11px; --input-font-size:11px;
+      --widget-height:24px; --padding:8px; --spacing:5px; --width:272px; --scrollbar-width:4px;
     }
-    .lil-gui.lyhn-gui .title{
+    .lil-gui.lyhn-gui{
+      position:fixed !important; top:60px !important; left:18px !important; right:auto !important; z-index:11;
+      background:rgba(12,18,42,0.20) !important;
+      -webkit-backdrop-filter:blur(9px) saturate(1.4); backdrop-filter:blur(9px) saturate(1.4);
+      border:1px solid rgba(150,175,240,0.20); border-radius:14px;
+      box-shadow:0 14px 50px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06);
+      overflow:hidden;
+    }
+    .lil-gui.lyhn-gui .children,
+    .lil-gui.lyhn-gui .lil-gui{ background:transparent !important; }
+    /* root title — the artistic signature face, gradient-filled to match LyHN */
+    .lil-gui.lyhn-gui.root > .title{
       font-family:'Snell Roundhand','Zapfino','Apple Chancery',cursive;
-      font-size:20px; letter-spacing:.4px; font-weight:600;
-      border-bottom:1px solid rgba(130,165,235,0.16);
+      font-size:22px; font-weight:700; letter-spacing:.5px; padding:9px 14px 7px;
+      background:linear-gradient(115deg,#5FD0E0,#9A8FE6 58%,#E8ECFF) !important;
+      -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+      border-bottom:1px solid rgba(150,175,240,0.16);
     }
-    .lil-gui.lyhn-gui .children, .lil-gui.lyhn-gui .controller{ background:transparent; }`;
+    /* folder titles — small uppercase labels */
+    .lil-gui.lyhn-gui .lil-gui > .title{
+      font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:600;
+      color:#9bb0ec !important; background:rgba(95,208,224,0.05) !important; padding:6px 12px;
+    }
+    .lil-gui.lyhn-gui .controller{ border:none !important; }
+    .lil-gui.lyhn-gui .controller .name{ color:#c4cdf0; }
+    .lil-gui.lyhn-gui input,
+    .lil-gui.lyhn-gui .slider{ background:rgba(120,170,235,0.10) !important; border-radius:6px !important; color:#eaf0ff; }
+    .lil-gui.lyhn-gui .slider .fill{ background:linear-gradient(90deg,#5FD0E0,#9A8FE6) !important; }
+    /* custom reset button (footer) */
+    .lil-gui.lyhn-gui .lyhn-reset{
+      display:block; width:calc(100% - 16px); margin:9px 8px 10px; padding:7px 0;
+      font:600 11px/1 inherit; letter-spacing:.1em; color:#bfeaf2; cursor:pointer;
+      background:rgba(95,208,224,0.12); border:1px solid rgba(95,208,224,0.30);
+      border-radius:8px; transition:background .2s ease, transform .1s ease;
+    }
+    .lil-gui.lyhn-gui .lyhn-reset:hover{ background:rgba(95,208,224,0.24); }
+    .lil-gui.lyhn-gui .lyhn-reset:active{ transform:scale(0.98); }`;
   document.head.appendChild(s);
 }
 
 /** @param {{ rig: { state: any }, renderer: any }} refs */
 export function createGui({ rig, renderer }) {
   injectTheme();
-  const gui = new GUI({ title: 'LyHN' });
+  const gui = new GUI({ title: 'LyHN', autoPlace: false }); // we place it ourselves
   gui.domElement.classList.add('lyhn-gui');
+  document.body.appendChild(gui.domElement);
 
   const fr = gui.addFolder('涟漪 Ripple');
   fr.add(CONFIG.ripple, 'sensitivity', 0, 0.5, 0.005).name('灵敏度 (低=易触发)');
@@ -72,6 +102,14 @@ export function createGui({ rig, renderer }) {
   fp.add(CONFIG.post, 'accentIntensity', 0, 1, 0.02).name('强调色强度');
   fp.add(CONFIG.post, 'bloomThreshold', 0, 1, 0.01).name('Bloom 阈值');
   fp.add(renderer, 'toneMappingExposure', 0.2, 2, 0.05).name('曝光 exposure');
+
+  // Reset everything to the values captured when the panel was built (= the config
+  // defaults), via lil-gui's recursive reset.
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'lyhn-reset';
+  resetBtn.textContent = '↺ 重置默认';
+  resetBtn.addEventListener('click', () => gui.reset());
+  gui.domElement.appendChild(resetBtn);
 
   return gui;
 }
