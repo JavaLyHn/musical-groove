@@ -43,6 +43,6 @@ function idle(r, t, cfg) {
 export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg) {
   const band = ringBandIndex(ringT, spectrum.length);
   const base = cfg.baseHeight + radialEnergy(r, cfg.centerPeak, cfg.falloff);
-  const reactive = spectrum[band] * cfg.reactive * (1 - 0.5 * ringT); // center reacts more
+  const reactive = spectrum[band] * cfg.reactive * (1 - 0.2 * ringT); // gentle center emphasis -> wider active area
   return base + reactive + idle(r, t, cfg);
 }

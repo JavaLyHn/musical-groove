@@ -14,9 +14,9 @@ export function createSimulatedAudioSource(bands = CONFIG.bands) {
     const beat = Math.pow(1 - beatPhase, 4);          // sharp attack, decay
     for (let i = 0; i < bands; i++) {
       const f = i / (bands - 1);                      // 0 (bass) .. 1 (treble)
-      const tilt = Math.exp(-f * 1.7);                // bass-heavy
+      const tilt = Math.exp(-f * 0.9);                // gently bass-leaning (flatter)
       const wobble = 0.5 + 0.5 * Math.sin(t * (1.3 + f * 5.0) + i * 0.6);
-      const bassHit = beat * (1 - f) * 0.8;           // beat lives in the lows
+      const bassHit = beat * (1 - f * 0.7) * 0.5;     // beat spread across more bands (wider radius)
       spectrum[i] = clamp(tilt * (0.35 * wobble + 0.25) + bassHit, 0, 1);
     }
   }

@@ -5,8 +5,8 @@ export const CONFIG = {
 
   // Large, gently-curved sphere cap: a vast field that fills the frame and bends
   // only at a distant horizon.
-  sphereRadius: 800,
-  capAngle: 0.165,
+  sphereRadius: 1150,
+  capAngle: 0.115,
 
   colors: {
     bg0: '#0B1330',          // deep navy void (outer gradient + fog) — not pure black
@@ -17,10 +17,10 @@ export const CONFIG = {
   },
 
   field: {
-    centerPeak: 5.0,         // central rise
-    falloff: 30.0,           // broad falloff over the big field
+    centerPeak: 2.5,         // small central rise -> no sharp peak
+    falloff: 52.0,           // WIDE falloff -> a broad bright center, not a sharp spike
     baseHeight: 4.0,         // tall base so columns read as tall columns
-    reactive: 15.0,          // bigger spectrum relief -> taller, more obvious motion
+    reactive: 12.0,          // spectrum relief (eased so the center spreads, not spikes)
     idleAmp: 1.4,            // idle breathing so columns always visibly move
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
