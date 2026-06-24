@@ -1,0 +1,21 @@
+import { describe, it, expect } from 'vitest';
+import { CONFIG } from '../src/config.js';
+
+describe('CONFIG', () => {
+  it('has 64 bands and a 40x40 grid by default', () => {
+    expect(CONFIG.bands).toBe(64);
+    expect(CONFIG.grid).toBe(40);
+  });
+  it('caps pixel ratio at 2', () => {
+    expect(CONFIG.maxPixelRatio).toBe(2);
+  });
+  it('defines the full palette as hex strings', () => {
+    for (const k of ['bg0', 'bg1', 'low', 'mid', 'high', 'core']) {
+      expect(CONFIG.colors[k]).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+  it('defines spring stiffness and damping for the field', () => {
+    expect(CONFIG.field.stiffness).toBeGreaterThan(0);
+    expect(CONFIG.field.damping).toBeGreaterThan(0);
+  });
+});
