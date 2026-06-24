@@ -11,10 +11,10 @@ export function createCore() {
     new THREE.IcosahedronGeometry(c.radius, 3),
     new THREE.MeshStandardMaterial({ color: 0x000000, emissive: coreColor, emissiveIntensity: c.intensity, roughness: 0.3 }),
   );
-  sphere.position.y = 1.2;
+  sphere.position.y = 4.0;
   group.add(sphere);
 
-  const light = new THREE.PointLight(coreColor.getHex(), 2.0, 40, 2);
+  const light = new THREE.PointLight(coreColor.getHex(), 0.8, 40, 2);
   light.position.copy(sphere.position);
   group.add(light);
 
@@ -33,7 +33,7 @@ export function createCore() {
     // pulse envelope follows bass with fast attack / slow decay
     pulse = Math.max(pulse * (1 - 4 * dt), bass);
     sphere.material.emissiveIntensity = c.intensity + pulse * c.pulse;
-    light.intensity = 2.0 + pulse * 3.0;
+    light.intensity = 0.8 + pulse * 2.0;
     const s = 1 + pulse * 0.25;
     sphere.scale.setScalar(s);
 

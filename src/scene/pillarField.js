@@ -15,7 +15,7 @@ export function createPillarField() {
 
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0e22, roughness: 0.55, metalness: 0.0,
-    emissive: 0xffffff, emissiveIntensity: 1.55, vertexColors: false,
+    emissive: 0xffffff, emissiveIntensity: 1.25, vertexColors: false,
   });
 
   // Per-instance height attribute + segmented-stripe shader injection.
@@ -46,28 +46,26 @@ export function createPillarField() {
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
 
   const heights = new Float32Array(n).fill(f.baseHeight);
-  const vels = new Float32Array(n);
   const maxR = layout.reduce((m, L) => Math.max(m, L.r), 0) || 1;
   const waves = [];        // active beat shockwaves: { age }
   let prevBass = 0;
+  // precompute each pillar's orient quaternion (surface normals never change)
+  const quats = layout.map((L) =>
+    new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(L.nx, L.ny, L.nz)));
   const _m = new THREE.Matrix4();
-  const _q = new THREE.Quaternion();
   const _p = new THREE.Vector3();
   const _s = new THREE.Vector3();
-  const _nrm = new THREE.Vector3();
   const _col = new THREE.Color();
 
   function writeInstance(i, h) {
     const L = layout[i];
-    _nrm.set(L.nx, L.ny, L.nz);
-    _q.setFromUnitVectors(UP, _nrm);
     _p.set(L.x, L.y, L.z);
     _s.set(1, h, 1);
-    _m.compose(_p, _q, _s);
+    _m.compose(_p, quats[i], _s);
     mesh.setMatrixAt(i, _m);
     aHeight.setX(i, h);
     const hNorm = Math.min(h / (f.centerPeak + f.reactive), 1);
-    _col.copy(colorRamp(hNorm));
+    colorRamp(hNorm, _col);            // write into _col (no per-frame allocation)
     mesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 
@@ -111,5 +109,5 @@ export function createPillarField() {
     mesh.instanceColor.needsUpdate = true;
   }
 
-  return { mesh, update, _heights: heights, _vels: vels, _writeInstance: writeInstance, _layout: layout };
+  return { mesh, update, _heights: heights, _writeInstance: writeInstance, _layout: layout };
 }

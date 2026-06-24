@@ -20,12 +20,13 @@ export function springStep(value, vel, target, stiffness, damping, dt) {
 // height LUT (idle/low -> white-hot) interpolated across CONFIG.colors.ramp
 const _ramp = CONFIG.colors.ramp.map((hex) => new THREE.Color(hex));
 
-export function colorRamp(t) {
+export function colorRamp(t, out) {
   t = clamp(t, 0, 1);
   const n = _ramp.length - 1;
   const f = t * n;
   const i = Math.min(Math.floor(f), n - 1);
-  return new THREE.Color().copy(_ramp[i]).lerp(_ramp[i + 1], f - i);
+  const c = out || new THREE.Color();
+  return c.copy(_ramp[i]).lerp(_ramp[i + 1], f - i);
 }
 
 export function radialEnergy(r, peak, falloff) {

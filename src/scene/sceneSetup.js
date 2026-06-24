@@ -35,7 +35,7 @@ export function createCamera() {
 export function createScene() {
   const scene = new THREE.Scene();
   scene.background = makeGradientTexture(CONFIG.colors.bg1, CONFIG.colors.bg0);
-  scene.fog = new THREE.Fog(new THREE.Color(CONFIG.colors.bg0).getHex(), 28, 90);
+  scene.fog = new THREE.Fog(new THREE.Color(CONFIG.colors.bg0).getHex(), CONFIG.fog.near, CONFIG.fog.far);
   scene.add(new THREE.AmbientLight(0x3a4170, 0.6));
   const key = new THREE.DirectionalLight(0xbfd0ff, 0.35);
   key.position.set(6, 12, 8);
