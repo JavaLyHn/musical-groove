@@ -21,6 +21,7 @@ import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
 import { createNowPlaying } from './nowPlaying.js';
 import { createSignature } from './signature.js';
+import { createLyrics } from './lyrics.js';
 
 const canvas = document.getElementById('app');
 const renderer = createRenderer(canvas);
@@ -41,8 +42,13 @@ const field = createPillarField();
 scene.add(field.mesh);
 
 // System "Now Playing": a top-line overlay (cover + title — artist) fed by the dev
-// server's bridge over SSE, and the cover's dominant colour tints the field's palette.
-const nowPlaying = createNowPlaying({ onColor: (rgb) => field.setCoverColor(rgb) });
+// server's bridge over SSE; the cover's dominant colour tints the field's palette, and
+// each track change drives the synced lyrics (fetched from lrclib by title/artist).
+const lyrics = createLyrics();
+const nowPlaying = createNowPlaying({
+  onColor: (rgb) => field.setCoverColor(rgb),
+  onTrack: (t) => lyrics.setTrack(t),
+});
 
 const core = createCore();
 scene.add(core.group);
@@ -125,6 +131,7 @@ function frame() {
   core.update(levels.bass, dt);
   stars.update(dt);
   sparks.update(onset, dt);
+  lyrics.update(level, onset, dt);
   rig.update(dt);
   updateFx(dt, levels.bass);
   composer.render();

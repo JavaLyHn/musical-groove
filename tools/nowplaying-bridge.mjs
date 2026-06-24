@@ -43,6 +43,11 @@ export function normalizeTrack(p) {
     duration: typeof p.duration === 'number' ? p.duration : null,
     bundleId: String(p.bundleIdentifier || ''),
     artwork,
+    // playback position so the page can sync lyrics: elapsed seconds AT epoch posAt,
+    // advancing at `rate` while playing -> live pos = elapsed + (now - posAt)/1000 * rate.
+    elapsed: typeof p.elapsedTime === 'number' ? p.elapsedTime : 0,
+    posAt: p.timestamp ? Date.parse(p.timestamp) : Date.now(),
+    rate: typeof p.playbackRate === 'number' ? p.playbackRate : 1,
   };
 }
 

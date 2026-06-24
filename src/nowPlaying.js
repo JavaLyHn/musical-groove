@@ -6,11 +6,12 @@
 // colour and hand it to `onColor` so the scene's palette can follow the album art.
 import { coverColorFromImage } from './util/coverColor.js';
 
-/** @typedef {{ title: string, artist: string, album: string, playing: boolean, duration: number|null, bundleId: string, artwork: string|null }} Track */
+/** @typedef {{ title: string, artist: string, album: string, playing: boolean, duration: number|null, bundleId: string, artwork: string|null, elapsed: number, posAt: number, rate: number }} Track */
 
-/** @param {{ onColor?: (rgb: [number, number, number] | null) => void }} [opts] */
+/** @param {{ onColor?: (rgb: [number, number, number] | null) => void, onTrack?: (track: Track | null) => void }} [opts] */
 export function createNowPlaying(opts = {}) {
   const onColor = opts.onColor || (() => {});
+  const onTrack = opts.onTrack || (() => {});
 
   const style = document.createElement('style');
   style.textContent = `
@@ -60,6 +61,7 @@ export function createNowPlaying(opts = {}) {
 
   /** @param {Track | null} track */
   function render(track) {
+    onTrack(track); // every message, so lyrics keep fresh playback timing
     if (!track || !track.title) {
       wrap.classList.remove('show');
       lastKey = '';
