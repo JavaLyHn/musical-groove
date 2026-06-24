@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { buildPillarLayout, pillarTargetHeight } from '../util/field.js';
-import { colorRamp } from '../util/math.js';
+import { colorRamp, springStep } from '../util/math.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -75,10 +75,13 @@ export function createPillarField() {
   mesh.instanceColor.needsUpdate = true;
 
   function update(spectrum, levels, dt) {
+    const t = performance.now() / 1000;
     for (let i = 0; i < n; i++) {
       const L = layout[i];
-      const target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, performance.now() / 1000, f);
-      heights[i] = target; // Task 8 replaces this with a spring step
+      const target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f);
+      const step = springStep(heights[i], vels[i], target, f.stiffness, f.damping, dt);
+      heights[i] = Math.max(f.baseHeight, step.value);
+      vels[i] = step.vel;
       writeInstance(i, heights[i]);
     }
     mesh.instanceMatrix.needsUpdate = true;
