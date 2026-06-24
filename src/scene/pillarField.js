@@ -61,6 +61,7 @@ export function createPillarField() {
       uRippleTST: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector3()) },
       uRippleSpeed: { value: w.speed }, uRippleWidth: { value: w.width }, uRippleFade: { value: w.decay },
       uWhiteElev: { value: f.whiteElev }, uBrightFloor: { value: f.brightFloor }, uRadialDim: { value: f.radialDim },
+      uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
       uRippleColor: { value: new THREE.Color(CONFIG.colors.accent) },
@@ -237,7 +238,7 @@ vSegY = position.y * totalHeight;
 transformed.y = position.y * totalHeight;`;
 
 const FRAG_COMMON = `#include <common>
-uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio;
+uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel;
 uniform vec3 uRamp[5];
 uniform vec3 uRippleColor;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
@@ -251,14 +252,19 @@ vec3 rampColor(float t){
 }`;
 
 const FRAG_EMISSIVE = `#include <emissivemap_fragment>
-float _bnorm = smoothstep(uBrightFloor, 1.0, pow(clamp(vElev / uWhiteElev, 0.0, 1.0), 1.8));
-vec3 _emis = rampColor(_bnorm);
+// steep curve on normalized elevation: the field stays at the dark-blue floor
+// (rampColor near 0) until a column rises high; only the tallest reach white.
+float _hN = clamp(vElev / uWhiteElev, 0.0, 1.0);
+float _b = smoothstep(uBrightFloor, 0.95, _hN);
 float _seg = smoothstep(uGapRatio, uGapRatio + 0.10, fract(vSegY / uSegPitch));
 float _segMask = mix(0.22, 1.0, _seg);
-_emis *= _segMask;
-_emis *= (1.0 - uRadialDim * vRing);
+vec3 _emis = rampColor(_b) * _segMask;
+_emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
+_emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus
+_emis *= uEmissiveGain * (0.45 + 0.55 * uLevel); // exposure cut + loud->bright / quiet->dark
 float _top = smoothstep(0.80, 1.0, vYNorm);
-_emis += rampColor(_bnorm) * _top * 0.6 * _segMask;
+_emis += rampColor(_b) * _top * 0.5 * _segMask * uEmissiveGain;
+// ripple overrides bypass the exposure cut so the beat ring/pop pops on the dark field
 _emis = mix(_emis, uRippleColor, clamp(vRippleN, 0.0, 1.0));
 _emis = mix(_emis, vec3(1.0), clamp(vRippleW, 0.0, 1.0));
 totalEmissiveRadiance = _emis;`;

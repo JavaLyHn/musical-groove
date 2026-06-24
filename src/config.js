@@ -41,10 +41,12 @@ export const CONFIG = {
     attack: 0.5,             // fast rise (surge up)
     decay: 0.92,             // slow fall per 1/60s (melt down)
     heightScale: 1.8,        // master multiplier on the GPU audio elevation (per-band motifs)
-    whiteElev: 6.0,          // elevation at which a column is fully white-hot (lower = brighter sooner)
+    whiteElev: 13.0,         // elevation for full white-hot (high -> field sinks dark, only tall peaks burn)
+    coreBoost: 1.6,          // emissive radial weight: centre x1.6, edge x1.0 -> a hot core floats out
+    emissiveGain: 0.6,       // overall emissive exposure cut (dark field; ripples bypass it)
     brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
-    brightFloor: 0.15,       // dark-blue floor: below this (after pow) a column stays dark, not lit ->
+    brightFloor: 0.2,        // dark-blue floor: below this (normalized elevation) a column stays dark ->
                              //   dark field + hot core contrast holds even at the loudest moment
     radialDim: 0.30,         // mild edge dimming for depth (height now carries most of the brightness)
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
@@ -102,7 +104,7 @@ export const CONFIG = {
   // frame; lower FOV + bigger distance tightens perspective and enlarges the core.
   // Live-tune with ?tune (W/S pitch, Q/E fov, A/D distance, R/F targetY).
   camera: { fov: 35, pitchDeg: 30, distance: 190, targetY: 7, orbitSpeed: 0, bob: 0 },
-  post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.92, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
+  post: { bloomStrength: 0.16, bloomRadius: 0.55, bloomThreshold: 0.62, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
   fpsCap: 30,                // preset overrides this
