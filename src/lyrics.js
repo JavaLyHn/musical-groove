@@ -40,9 +40,8 @@ export function createLyrics() {
       opacity:0;transform:translateY(9px);
       transition:opacity .26s ease, transform .26s cubic-bezier(.2,.8,.2,1);will-change:transform,opacity;}
     .lyhn-lyrics .cur.show{opacity:1;transform:translateY(0);}
-    .lyhn-lyrics .cur .txt{display:inline-block;will-change:transform,filter;
-      background:linear-gradient(172deg,#ffffff 0%,#d6e3ff 50%,#a6b8f0 100%);
-      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+    .lyhn-lyrics .cur .txt{display:inline-block;will-change:transform;color:#d6e3ff;
+      text-shadow:0 0 17px rgba(95,208,224,.5), 0 0 36px rgba(120,150,240,.28), 0 2px 10px rgba(6,10,28,.55);}
     .lyhn-lyrics .nxt{font-size:17px;font-weight:500;margin-top:14px;letter-spacing:.02em;
       color:#93a6df;opacity:0;transition:opacity .4s ease;}
     .lyhn-lyrics .nxt.show{opacity:.46;}`;
@@ -124,13 +123,12 @@ export function createLyrics() {
       cur.classList.toggle('show', !!line);
       nxt.classList.toggle('show', !!line && !!nxt.textContent);
     }
-    // 动感: the live line breathes + glows with the music (instant, no transition lag)
+    // 动感 via a GPU-composited scale ONLY (no per-frame filter/shadow -> no re-raster,
+    // no jank): a gentle breathe with the level + a kick on each onset. Glow is static CSS.
     if (lineIdx >= 0) {
       const lv = Math.min(level, 1);
-      const s = 1 + lv * 0.05 + Math.min(onset * 1.4, 0.07);
-      const glow = 12 + lv * 26 + Math.min(onset * 55, 22);
+      const s = 1 + lv * 0.045 + Math.min(onset * 1.6, 0.07);
       txt.style.transform = `scale(${s.toFixed(3)})`;
-      txt.style.filter = `drop-shadow(0 0 ${glow.toFixed(0)}px rgba(110,210,235,${(0.30 + lv * 0.45).toFixed(2)}))`;
     }
   }
 
