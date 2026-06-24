@@ -29,7 +29,7 @@ function injectTheme() {
     .lil-gui.lyhn-gui{
       position:fixed !important; top:60px !important; left:18px !important; right:auto !important; z-index:11;
       max-height:calc(100vh - 78px) !important;
-      display:flex !important; flex-direction:column;
+      display:flex; flex-direction:column; /* NOT !important: lil-gui's hide() sets inline display:none, which must win */
       background:rgba(12,18,42,0.20) !important;
       -webkit-backdrop-filter:blur(9px) saturate(1.4); backdrop-filter:blur(9px) saturate(1.4);
       border:1px solid rgba(150,175,240,0.20); border-radius:14px;
