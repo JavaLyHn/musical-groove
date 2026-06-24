@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { buildPillarLayout, pillarTargetHeight } from '../util/field.js';
-import { colorRamp } from '../util/math.js';
+import { colorRamp, clamp } from '../util/math.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -64,7 +64,14 @@ export function createPillarField() {
   const _p = new THREE.Vector3();
   const _s = new THREE.Vector3();
   const _col = new THREE.Color();
-  const denom = f.baseHeight + f.centerPeak + f.reactive;
+  // Brightness FOLLOWS height: a column is fully white-hot once it reaches
+  // `whiteHeight`; below that it rides the cold->hot ramp via a pow curve, so
+  // only the tallest columns go white. (height drives form AND light together.)
+  const whiteHeight = f.baseHeight + f.reactive * f.brightSpan;
+  function heightBrightness(h) {
+    const hNorm = clamp((h - f.baseHeight) / (whiteHeight - f.baseHeight), 0, 1);
+    return Math.pow(hNorm, f.brightPow);
+  }
 
   function writeInstance(i, h) {
     const L = layout[i];
@@ -73,8 +80,8 @@ export function createPillarField() {
     _m.compose(_p, quats[i], _s);
     mesh.setMatrixAt(i, _m);
     aHeight.setX(i, h);
-    colorRamp(Math.min(h / denom, 1), _col); // write into _col (no per-frame allocation)
-    _col.multiplyScalar(1 - 0.75 * L.ringT);  // brightness sinks toward the edges (white only at center)
+    colorRamp(heightBrightness(h), _col);       // cold-dark -> white-hot, driven by height
+    _col.multiplyScalar(1 - f.radialDim * L.ringT); // mild edge dim for depth
     mesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 
@@ -85,8 +92,8 @@ export function createPillarField() {
     _s.set(show, show, show);                                     // scale 0 hides the cap
     _m.compose(_p, quats[i], _s);
     capMesh.setMatrixAt(i, _m);
-    colorRamp(Math.min(peak[i] / denom, 1), _col);
-    _col.multiplyScalar(1 - 0.75 * L.ringT);
+    colorRamp(heightBrightness(peak[i]), _col);
+    _col.multiplyScalar(1 - f.radialDim * L.ringT);
     capMesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 

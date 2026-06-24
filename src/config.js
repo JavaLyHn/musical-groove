@@ -22,17 +22,24 @@ export const CONFIG = {
   },
 
   field: {
-    centerPeak: 11.0,        // tall central spike -> a cluster of soaring towers, not a lit dome
-    falloff: 26.0,           // tighter -> the tall cluster stays a cluster (inner radius), edges short
-    baseHeight: 2.2,         // low floor so edges stay short and the center stands out
-    reactive: 12.0,          // spectrum relief (eased so the center spreads, not spikes)
-    jitter: 3.5,             // per-column random static height -> jagged independent-cube skyline
-    idleAmp: 1.4,            // idle breathing so columns always visibly move
+    // AUDIO is the primary HEIGHT driver. The centre stands tall because the
+    // bass band (mapped to the centre) is loud, not because of a frozen bump —
+    // and brightness then FOLLOWS height (see brightSpan/brightPow below), so a
+    // column shoots up and whitens together instead of lights flashing on flat ground.
+    centerPeak: 1.5,         // small STATIC centre bias (was 11) — audio now makes the centre tall
+    falloff: 26.0,           // shaping of that small static centre bias
+    baseHeight: 2.0,         // low floor; quiet/edge columns sit here
+    reactive: 16.0,          // BIG height gain -> tallest columns reach ~8x base on peaks
+    jitter: 1.2,             // a little STATIC per-column height for texture (was 3.5)
+    idleAmp: 1.0,            // gentle breathing so it's never dead in silence
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
     damping: 14.0,
-    attack: 0.5,             // fast rise
-    decay: 0.90,             // slow fall per 1/60s
+    attack: 0.5,             // fast rise (surge up)
+    decay: 0.92,             // slow fall per 1/60s (melt down)
+    brightSpan: 0.62,        // a column is fully white-hot at height = baseHeight + reactive*brightSpan
+    brightPow: 1.5,          // emissive = colorRamp(pow(hNorm, brightPow)) -> only the tallest go white-hot
+    radialDim: 0.30,         // mild edge dimming for depth (height now carries most of the brightness)
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
     pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes

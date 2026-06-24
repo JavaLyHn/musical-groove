@@ -49,16 +49,21 @@ function idle(phase, t, cfg) {
   return cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase));
 }
 
-// `phase` and `bias` are per-column (from the layout). bias adds a fixed random
-// height and varies the reactivity, so adjacent columns differ -> a jagged
-// "thousands of independent cubes" skyline instead of a smooth radial shell.
+// `phase` and `bias` are per-column (from the layout). bias varies the
+// reactivity (and adds a touch of static height), so adjacent columns differ ->
+// a jagged "thousands of independent cubes" skyline instead of a smooth shell.
+//
+// AUDIO is the dominant term: `spectrum[band] * reactive` is large, so columns
+// visibly surge and fall with the music; the static centre bias and jitter are
+// small. Everything is weighted toward the centre (w) so energy concentrates there.
 export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0) {
   const band = ringBandIndex(ringT, spectrum.length);
-  const w = 1 - 0.8 * ringT; // radial weight: center ×1.0 -> edge ×0.2 (energy concentrates at center)
-  const energy =
-    radialEnergy(r, cfg.centerPeak, cfg.falloff) +
-    spectrum[band] * cfg.reactive * (0.4 + 0.6 * bias) + // center=bass (loudest) -> tallest
-    bias * cfg.jitter + // per-column jitter (independent cubes)
-    idle(phase, t, cfg);
-  return cfg.baseHeight + energy * w;
+  const a = spectrum[band];                    // this column's band amplitude (0..1)
+  const w = 1 - 0.85 * ringT;                  // radial weight: centre moves most, edges least
+  const drive =
+    a * cfg.reactive * (0.5 + 0.5 * bias) +    // AUDIO — the primary height driver (big gain)
+    radialEnergy(r, cfg.centerPeak, cfg.falloff) + // small static centre bias
+    bias * cfg.jitter +                        // per-column static texture (independent cubes)
+    idle(phase, t, cfg);                       // gentle breathing so it's never dead
+  return cfg.baseHeight + drive * w;
 }
