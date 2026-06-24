@@ -73,6 +73,17 @@ export const CONFIG = {
     bandAtkFast: 0.55,  // high-band attack: snappy rise (sharp hits)
     bandDecSlow: 0.95,  // low-band decay per 60fps: slow melt
     bandDecFast: 0.85,  // high-band decay per 60fps: fast fall (sparkle)
+    // persistent TRAVELING WAVE: a directional sweep always flowing over the field
+    // (wind), even between beats. Direction rotates slowly; amplitude swells with mids.
+    waveAmp: 2.0,       // height of the wind undulation
+    waveFreq: 0.03,     // spatial frequency across the field (~2 crests over the diameter)
+    waveSpeed: 1.2,     // how fast the crests travel
+    waveRot: 0.04,      // how fast the wind direction rotates (rad/s — full turn ~2.6min)
+    // sparse hard ACCENTS: on each transient a few random columns punch to max + flash,
+    // then fall in a few frames — sparks on a calm base (the other half of the energy).
+    accentHeight: 9.0,  // how tall an accent punches
+    accentDecay: 7.0,   // accent fall-off (e^-age*decay): ~0.15s flash
+    accentThresh: 0.93, // sparsity: columns with hash >= this spike (~7% per transient)
   },
 
   // depth fog -> from mid-field outward the far cubes sink into the cool

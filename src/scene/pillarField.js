@@ -4,6 +4,7 @@ import { buildPillarLayout } from '../util/field.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const RIPPLES = 10;
+const ACCENTS = 6;           // concurrent sparse-accent slots (sparks on transients)
 const COVER_TINT_AMT = 0.42; // tint strength when an album cover is present (0 = off)
 const HIST_LEN = 72;         // band-history rows the radial delay reads back into (~1.2s @60fps)
 
@@ -85,6 +86,13 @@ export function createPillarField() {
       uHistory: { value: histTex },
       uMaxDelayRows: { value: CONFIG.motion.radialDelay },
       uLevelFloor: { value: CONFIG.motion.levelFloor },
+      // persistent traveling wave (always-on flow)
+      uWaveAmp: { value: m.waveAmp }, uWaveFreq: { value: m.waveFreq },
+      uWaveSpeed: { value: m.waveSpeed }, uWaveRot: { value: m.waveRot },
+      // sparse hard accents (sparks on transients)
+      uAccentTSt: { value: Array.from({ length: ACCENTS }, () => new THREE.Vector3()) },
+      uAccentHeight: { value: m.accentHeight }, uAccentDecay: { value: m.accentDecay },
+      uAccentThresh: { value: m.accentThresh },
     });
     U = shader.uniforms;
 
@@ -127,6 +135,18 @@ export function createPillarField() {
     r.strength = strength;
     r.type = type;
     rippleIdx = (rippleIdx + 1) % RIPPLES;
+  }
+
+  // sparse hard accents: each transient picks a fresh random subset of columns (via
+  // `seed`) to punch up + flash, then fall fast. A different seed -> a different few.
+  const accents = Array.from({ length: ACCENTS }, () => ({ time: -1e3, strength: 0, seed: 0 }));
+  let accentIdx = 0;
+  function spawnAccent(t, strength, seed) {
+    const a = accents[accentIdx];
+    a.time = t;
+    a.strength = strength;
+    a.seed = seed;
+    accentIdx = (accentIdx + 1) % ACCENTS;
   }
 
   // album-art tint, lerped toward the latest cover colour so the field's colour
@@ -180,6 +200,13 @@ export function createPillarField() {
       if (ripples[i].strength > 0 && t - ripples[i].time > RIPPLE_MAX_AGE) ripples[i].strength = 0;
     }
 
+    // beats -> sparse hard accents: a few random columns spark to max + flash
+    if (beat.kick > 0) spawnAccent(t, Math.min(1.0, beat.kick), Math.random() * 100);
+    if (beat.hat > 0) spawnAccent(t, Math.min(1.0, beat.hat * 0.8), Math.random() * 100);
+    for (let i = 0; i < ACCENTS; i++) {
+      if (accents[i].strength > 0 && t - accents[i].time > 1.0) accents[i].strength = 0;
+    }
+
     if (!U) return; // material not compiled yet
     U.uTime.value = t;
     U.uLevel.value = levelSmooth;
@@ -189,6 +216,9 @@ export function createPillarField() {
     for (let i = 0; i < RIPPLES; i++) {
       U.uRipplePos.value[i].copy(ripples[i].pos);
       U.uRippleTST.value[i].set(ripples[i].time, ripples[i].strength, ripples[i].type);
+    }
+    for (let i = 0; i < ACCENTS; i++) {
+      U.uAccentTSt.value[i].set(accents[i].time, accents[i].strength, accents[i].seed);
     }
 
     // ease the cover tint toward its target (~0.5s cross on a track change)
@@ -235,10 +265,14 @@ attribute float aPhase;
 uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp;
 uniform sampler2D uHistory;
 uniform float uMaxDelayRows, uLevelFloor;
+uniform float uMid;
+uniform float uWaveAmp, uWaveFreq, uWaveSpeed, uWaveRot;
+uniform vec3 uAccentTSt[${ACCENTS}];
+uniform float uAccentHeight, uAccentDecay, uAccentThresh;
 uniform vec2 uRipplePos[${RIPPLES}];
 uniform vec3 uRippleTST[${RIPPLES}];
 uniform float uRippleSpeed, uRippleWidth, uRippleFade;
-varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
+varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW, vAccent;
 // read band b (0..7) from the history texture at time-row coord y (0..1)
 float histBand(float b, float y){ return texture2D(uHistory, vec2((b + 0.5) / 8.0, y)).r; }
 ${SNOISE}`;
@@ -282,6 +316,13 @@ float audio = (subLift + bassLift + lowMidLift + midLift + hmLift + airLift) * u
 
 float elev = idle + audio;
 
+// persistent TRAVELING WAVE: an always-on directional sweep (wind over the field),
+// flowing even between beats; direction rotates slowly, amplitude swells with mids.
+float _wd = uTime * uWaveRot;
+vec2 _wdir = vec2(cos(_wd), sin(_wd));
+float _wave = sin(dot(aField, _wdir) * uWaveFreq - uTime * uWaveSpeed) * 0.5 + 0.5;
+elev += _wave * uWaveAmp * (0.4 + 1.4 * uMid);
+
 // beat ripples expanding from the core (and offset hat pops)
 float rN = 0.0, rW = 0.0;
 for (int i = 0; i < ${RIPPLES}; i++) {
@@ -299,9 +340,22 @@ for (int i = 0; i < ${RIPPLES}; i++) {
   if (white) rW += pulse; else rN += pulse;
 }
 
+// sparse hard ACCENTS: a few random columns (chosen per-accent by a hashed seed) punch
+// up to full height + flash, then fall fast — sparks bursting on the calm base.
+float _acc = 0.0;
+for (int i = 0; i < ${ACCENTS}; i++) {
+  vec3 a = uAccentTSt[i];
+  if (a.y <= 0.0) continue;
+  float hsh = fract(sin(aRnd * 91.7 + a.z * 13.1) * 43758.5453);
+  if (hsh < uAccentThresh) continue;            // only the sparse selected columns
+  _acc += a.y * exp(-(uTime - a.x) * uAccentDecay);
+}
+elev += _acc * uAccentHeight;
+
 vElev = elev;
 vRippleN = rN;
 vRippleW = rW;
+vAccent = _acc;
 float totalHeight = uBaseHeight + elev;
 vSegY = position.y * totalHeight;
 transformed.y = position.y * totalHeight;`;
@@ -315,7 +369,7 @@ uniform vec3 uRampWarm[5];
 uniform vec3 uRippleColor;
 uniform vec3 uCoverTint;
 uniform float uCoverTintAmt;
-varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
+varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW, vAccent;
 vec3 rampOf(vec3 r0, vec3 r1, vec3 r2, vec3 r3, vec3 r4, float t){
   t = clamp(t, 0.0, 1.0);
   vec3 c = mix(r0, r1, smoothstep(0.0, 0.25, t));
@@ -371,6 +425,9 @@ if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += vec3(1.0) * uBrilliance *
 // burned blob — the brighter a fragment, the more it's compressed.
 float _mx = max(_emis.r, max(_emis.g, _emis.b));
 _emis *= 1.0 / (1.0 + _mx * 0.5);
+
+// sparse accent flash: a sharp white pop that bypasses the exposure cut (spark on the field)
+_emis += vec3(1.0) * clamp(vAccent, 0.0, 1.2) * 0.9;
 
 // ripple overrides bypass the exposure cut so the beat ring/pop pops on the dark field
 _emis = mix(_emis, uRippleColor, clamp(vRippleN, 0.0, 1.0));
