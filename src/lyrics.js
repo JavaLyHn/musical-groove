@@ -5,6 +5,8 @@
 // — large and glowing, BREATHING with the music (scale + glow pulse on level/onset), the
 // next line faint beneath. No synced lyrics found (or instrumental) -> nothing shows.
 
+import { CONFIG } from './config.js';
+
 /** @typedef {{ title:string, artist:string, album:string, duration:number|null, playing:boolean, elapsed:number, posAt:number, rate:number }} Track */
 
 /** Parse LRC text into time-sorted lines, dropping blank (instrumental-gap) lines.
@@ -34,14 +36,16 @@ export function createLyrics() {
     .lyhn-lyrics{position:fixed;left:50%;bottom:15%;transform:translateX(-50%);z-index:8;
       width:min(82vw,920px);text-align:center;pointer-events:none;
       font-family:-apple-system,"PingFang SC","Hiragino Sans GB",system-ui,sans-serif;}
-    .lyhn-lyrics .cur{font-size:34px;font-weight:700;letter-spacing:.02em;line-height:1.3;
-      opacity:0;transform:translateY(16px);
-      transition:opacity .5s ease, transform .5s cubic-bezier(.2,.8,.2,1);will-change:transform,opacity;}
+    .lyhn-lyrics .cur{font-size:36px;font-weight:700;letter-spacing:.03em;line-height:1.3;
+      opacity:0;transform:translateY(9px);
+      transition:opacity .26s ease, transform .26s cubic-bezier(.2,.8,.2,1);will-change:transform,opacity;}
     .lyhn-lyrics .cur.show{opacity:1;transform:translateY(0);}
-    .lyhn-lyrics .cur .txt{display:inline-block;color:#eef2ff;will-change:transform;}
-    .lyhn-lyrics .nxt{font-size:17px;font-weight:500;margin-top:12px;color:#9fb0e6;
-      opacity:0;transition:opacity .5s ease;}
-    .lyhn-lyrics .nxt.show{opacity:.5;}`;
+    .lyhn-lyrics .cur .txt{display:inline-block;will-change:transform,filter;
+      background:linear-gradient(172deg,#ffffff 0%,#d6e3ff 50%,#a6b8f0 100%);
+      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+    .lyhn-lyrics .nxt{font-size:17px;font-weight:500;margin-top:14px;letter-spacing:.02em;
+      color:#93a6df;opacity:0;transition:opacity .4s ease;}
+    .lyhn-lyrics .nxt.show{opacity:.46;}`;
   document.head.appendChild(style);
 
   const wrap = document.createElement('div');
@@ -107,7 +111,7 @@ export function createLyrics() {
       if (lineIdx !== -1) { lineIdx = -1; cur.classList.remove('show'); nxt.classList.remove('show'); }
       return;
     }
-    const pos = position();
+    const pos = position() + CONFIG.lyrics.offset; // lead to cancel the fixed playback/fade lag
     let i = lineIdx;
     if (i < 0 || lines[i].t > pos) i = -1;                 // jumped back -> resync
     while (i + 1 < lines.length && lines[i + 1].t <= pos) i++;
@@ -126,7 +130,7 @@ export function createLyrics() {
       const s = 1 + lv * 0.05 + Math.min(onset * 1.4, 0.07);
       const glow = 12 + lv * 26 + Math.min(onset * 55, 22);
       txt.style.transform = `scale(${s.toFixed(3)})`;
-      txt.style.textShadow = `0 0 ${glow.toFixed(0)}px rgba(95,208,224,${(0.28 + lv * 0.5).toFixed(2)})`;
+      txt.style.filter = `drop-shadow(0 0 ${glow.toFixed(0)}px rgba(110,210,235,${(0.30 + lv * 0.45).toFixed(2)}))`;
     }
   }
 

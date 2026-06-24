@@ -100,6 +100,9 @@ export const CONFIG = {
   // RIPPLES are a first-class reaction now: an independent (sensitivity, cooldown) pair
   // fed the audio onset. cooldown 0 = fire on every strong-enough beat, so rings overlap
   // into interference (the radial phase delay was its prototype). Low threshold = lively.
+  // lyrics: `offset` (s) leads the line switch to cancel a fixed lag — the player often
+  // reports a position behind what's actually heard, plus the fade-in. Tune live in ?gui.
+  lyrics: { offset: 0.7 },
   ripple: { sensitivity: 0.1, cooldown: 0 },
   // METEORS: rare, ceremonial streaks — only the biggest transients, with a long cooldown
   // (frames), so they read as the occasional shooting star, not a constant spark cloud.
