@@ -73,14 +73,14 @@ export function createPillarField() {
     return Math.pow(hNorm, f.brightPow);
   }
 
-  function writeInstance(i, h) {
+  function writeInstance(i, h, ringGlow = 0) {
     const L = layout[i];
     _p.set(L.x, L.y, L.z);
     _s.set(1, h, 1);
     _m.compose(_p, quats[i], _s);
     mesh.setMatrixAt(i, _m);
     aHeight.setX(i, h);
-    colorRamp(heightBrightness(h), _col);       // cold-dark -> white-hot, driven by height
+    colorRamp(clamp(heightBrightness(h) + ringGlow, 0, 1), _col); // height drives it; beat ring brightens transiently
     _col.multiplyScalar(1 - f.radialDim * L.ringT); // mild edge dim for depth
     mesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
@@ -122,10 +122,13 @@ export function createPillarField() {
 
     for (let i = 0; i < n; i++) {
       const L = layout[i];
-      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f, L.phase, L.bias);
+      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f, L.phase, L.bias, L.bandJitter);
+      let ringGlow = 0;
       for (let k = 0; k < waves.length; k++) {
         const d = (L.r - waves[k].age * w.speed) / w.width;
-        target += w.amp * Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay);
+        const env = Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay);
+        target += w.amp * env;        // height shockwave
+        ringGlow += w.bright * env;   // brightness ring expanding outward on the beat
       }
       // attack-fast / decay-slow: snap up, melt down (the VU-meter soul)
       let h = heights[i];
@@ -134,7 +137,7 @@ export function createPillarField() {
       heights[i] = Math.max(f.baseHeight, h);
       // peak-hold: jump to the peak, then sink slowly
       peak[i] = Math.max(heights[i], f.baseHeight + (peak[i] - f.baseHeight) * capSink);
-      writeInstance(i, heights[i]);
+      writeInstance(i, heights[i], ringGlow);
       writeCap(i);
     }
     mesh.instanceMatrix.needsUpdate = true;

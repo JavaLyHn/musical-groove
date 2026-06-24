@@ -29,7 +29,9 @@ export const CONFIG = {
     centerPeak: 1.5,         // small STATIC centre bias (was 11) — audio now makes the centre tall
     falloff: 26.0,           // shaping of that small static centre bias
     baseHeight: 2.0,         // low floor; quiet/edge columns sit here
-    reactive: 16.0,          // BIG height gain -> tallest columns reach ~8x base on peaks
+    reactive: 19.0,          // BIG height gain -> tallest columns reach ~8-10x base on peaks
+    ampPow: 1.8,             // height ∝ amp^1.8 -> loud bands spike disproportionately (thin tall towers)
+    bandScatter: 0.28,       // per-column FFT-band scatter -> granular, neighbours move independently
     jitter: 1.2,             // a little STATIC per-column height for texture (was 3.5)
     idleAmp: 1.0,            // gentle breathing so it's never dead in silence
     idleSpeed: 0.55,
@@ -54,8 +56,17 @@ export const CONFIG = {
   // tuning; these are the static fallback.
   fog: { near: 175, far: 330 },
 
-  // beat-triggered radial shockwave rippling outward across the field
-  wave: { speed: 40.0, width: 9.0, amp: 12.0, decay: 1.4 },
+  // beat-triggered ripple: a height shockwave AND a brightness ring expanding
+  // from the core outward, sweeping the whole field in ~0.6-0.7s.
+  wave: { speed: 85.0, width: 10.0, amp: 12.0, decay: 1.0, bright: 0.5 },
+
+  // floating embers: additive white sparks that burst from the core on strong
+  // beats and slowly drift up + fade — the "alive, has energy" top layer.
+  sparks: {
+    count: 420, burst: 44, life: 2.6, size: 2.0,
+    rise: 6.0, spread: 11.0, spawnR: 38, spawnYmin: 5, spawnYmax: 17,
+    threshold: 0.5, edge: 0.08,
+  },
 
   core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0 }, // dim + cool
   stars: { count: 1400, radius: 220 },

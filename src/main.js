@@ -10,6 +10,7 @@ import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js
 import { createPillarField } from './scene/pillarField.js';
 import { createCore } from './scene/core.js';
 import { createStarfield } from './scene/starfield.js';
+import { createSparks } from './scene/sparks.js';
 import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
@@ -33,6 +34,9 @@ scene.add(core.group);
 
 const stars = createStarfield();
 scene.add(stars.points);
+
+const sparks = createSparks();
+scene.add(sparks.points);
 
 const atmosphere = createAtmosphere();
 scene.add(atmosphere.sprite);
@@ -83,6 +87,7 @@ function frame() {
   field.update(spectrum, levels, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
+  sparks.update(levels, dt);
   rig.update(dt);
   updateFx(dt, levels.bass);
   composer.render();

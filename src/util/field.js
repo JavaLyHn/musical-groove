@@ -33,6 +33,7 @@ export function buildPillarLayout(grid, spacing, sphereRadius, capAngle) {
         r, ringT,
         phase: Math.random() * Math.PI * 2,   // per-column idle phase
         bias: Math.random(),                   // per-column height/reactivity bias
+        bandJitter: Math.random() - 0.5,       // per-column FFT-band offset (granularity)
       });
     }
   }
@@ -56,12 +57,15 @@ function idle(phase, t, cfg) {
 // AUDIO is the dominant term: `spectrum[band] * reactive` is large, so columns
 // visibly surge and fall with the music; the static centre bias and jitter are
 // small. Everything is weighted toward the centre (w) so energy concentrates there.
-export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0) {
-  const band = ringBandIndex(ringT, spectrum.length);
+export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0, bandJitter = 0) {
+  // Per-column band scatter: neighbours read different FFT bins and move
+  // independently (granular) — no single disk pulsing — while the radial trend
+  // (centre = bass, edge = treble) is preserved.
+  const band = ringBandIndex(ringT + cfg.bandScatter * bandJitter, spectrum.length);
   const a = spectrum[band];                    // this column's band amplitude (0..1)
   const w = 1 - 0.85 * ringT;                  // radial weight: centre moves most, edges least
   const drive =
-    a * cfg.reactive * (0.5 + 0.5 * bias) +    // AUDIO — the primary height driver (big gain)
+    Math.pow(a, cfg.ampPow) * cfg.reactive * (0.5 + 0.5 * bias) + // power curve -> loud bands spike into thin tall towers
     radialEnergy(r, cfg.centerPeak, cfg.falloff) + // small static centre bias
     bias * cfg.jitter +                        // per-column static texture (independent cubes)
     idle(phase, t, cfg);                       // gentle breathing so it's never dead
