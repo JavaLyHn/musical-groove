@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
+import { applyQuality } from './quality.js';
+applyQuality(CONFIG);
+
 import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js';
 import { createPillarField } from './scene/pillarField.js';
 import { createCore } from './scene/core.js';
@@ -26,16 +30,28 @@ const rig = createCameraRig(camera);
 const { composer, setSize } = createComposer(renderer, scene, camera);
 
 const clock = new THREE.Clock();
+
+let visible = true;
+document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+
+const frameInterval = 1 / CONFIG.fpsCap;
+let acc = 0;
 function frame() {
+  requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
+  if (!visible) return;                 // pause work when wallpaper not shown
+  acc += dt;
+  if (acc < frameInterval) return;      // fps cap
+  acc = 0;
+
   audio.update(dt);
+  const spectrum = audio.getSpectrum();
   const levels = audio.getLevels();
-  field.update(audio.getSpectrum(), levels, dt);
+  field.update(spectrum, levels, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
   rig.update(dt);
   composer.render();
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
