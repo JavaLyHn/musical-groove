@@ -11,7 +11,9 @@ export const CONFIG = {
   // Large, gently-curved sphere cap: a vast field that fills the frame and bends
   // only at a distant horizon.
   sphereRadius: 1150,
-  capAngle: 0.115,
+  capAngle: 0.18,            // wider cap: field radius (~206) now exceeds the camera's horizontal
+                            // distance, so the near rim falls behind the camera -> foreground filled.
+                            // Also widens the world spacing so the cubes have clear gaps again.
 
   colors: {
     bg0: '#0B1330',          // deep navy void (outer gradient + fog) — not pure black
@@ -68,7 +70,7 @@ export const CONFIG = {
   // beat ripple in the GPU shader (field world coords; the cap spans ~±132):
   // a ring expanding from the core, sweeping the field in ~0.6-0.7s. width = the
   // gaussian falloff scale of the ring; decay = exp(-age*decay) brightness fade.
-  wave: { speed: 210.0, width: 22.0, decay: 1.2 },
+  wave: { speed: 320.0, width: 30.0, decay: 1.2 },
 
   // floating embers: additive white sparks that burst from the core on strong
   // beats and slowly drift up + fade — the "alive, has energy" top layer.
