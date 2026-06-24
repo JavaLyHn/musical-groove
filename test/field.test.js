@@ -4,13 +4,12 @@ import { CONFIG } from '../src/config.js';
 
 describe('buildPillarLayout', () => {
   const layout = buildPillarLayout(40, 1.0, 60, 0.62);
-  it('forces an odd grid (column dead-center, no center seam) — 40 -> 41', () => {
-    expect(layout.length).toBe(41 * 41);
+  it('produces grid*grid pillars (Fibonacci distribution)', () => {
+    expect(layout.length).toBe(40 * 40);
   });
-  it('has a column exactly at the origin pointing straight up', () => {
-    const center = layout.find((p) => Math.abs(p.x) < 1e-6 && Math.abs(p.z) < 1e-6);
-    expect(center).toBeTruthy();
-    expect(center.r).toBeLessThan(1e-6);
+  it('has its innermost pillar near the apex pointing straight up', () => {
+    const center = layout.reduce((a, b) => (b.ringT < a.ringT ? b : a));
+    expect(center.ringT).toBeLessThan(0.05);
     expect(center.ny).toBeGreaterThan(0.99);
   });
   it('dips edges below center and tilts their normals outward', () => {

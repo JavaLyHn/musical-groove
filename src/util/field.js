@@ -1,41 +1,36 @@
 import { clamp, radialEnergy } from './math.js';
 
-// Spherical cap: the square grid is wrapped onto a sphere of `sphereRadius`,
-// apex at the origin (sphere centre at y = -sphereRadius). The cap spans polar
-// angle [0, capAngle] from the apex, so edges curve down and away -> a curved
-// planetary horizon. The outward sphere normal is already unit length.
+// Spherical cap via a FIBONACCI (golden-angle) distribution: N points spiral out
+// from the apex, with no rows or columns — so there is no longitude grout line to
+// view edge-on (the old square grid left a vertical seam through the centre). The
+// cap spans polar angle [0, capAngle]; ringT = sqrt(t) gives roughly uniform areal
+// density. `grid` only sets the count (N = grid*grid) for parity with the presets.
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 export function buildPillarLayout(grid, spacing, sphereRadius, capAngle) {
-  // Force an ODD grid so one column lands exactly at the centre (px=pz=0). With
-  // an even grid the centre falls between cells, leaving a continuous gap along
-  // the x=0 plane that runs straight away from the camera -> a black seam that
-  // splits the bright core in two. An odd grid puts a solid ridge of columns
-  // down the centre instead, so there is no seam to view edge-on.
-  if (grid % 2 === 0) grid += 1;
-  const c = (grid - 1) / 2;
-  const maxR = Math.hypot(c * spacing, c * spacing) || 1;
+  const n = grid * grid;
   const out = [];
-  for (let gx = 0; gx < grid; gx++) {
-    for (let gz = 0; gz < grid; gz++) {
-      const px = (gx - c) * spacing;
-      const pz = (gz - c) * spacing;
-      const r = Math.hypot(px, pz);
-      const ringT = clamp(r / maxR, 0, 1);
-      const phi = ringT * capAngle;        // polar angle from the cap apex
-      const az = Math.atan2(pz, px);
-      const sinP = Math.sin(phi);
-      out.push({
-        x: sphereRadius * sinP * Math.cos(az),
-        y: sphereRadius * (Math.cos(phi) - 1), // apex y=0, edges dip below
-        z: sphereRadius * sinP * Math.sin(az),
-        nx: sinP * Math.cos(az),
-        ny: Math.cos(phi),
-        nz: sinP * Math.sin(az),
-        r, ringT,
-        phase: Math.random() * Math.PI * 2,   // per-column idle phase
-        bias: Math.random(),                   // per-column height/reactivity bias
-        bandJitter: Math.random() - 0.5,       // per-column FFT-band offset (granularity)
-      });
-    }
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const ringT = Math.sqrt(t);            // 0 at apex -> 1 at rim, uniform areal density
+    const phi = ringT * capAngle;          // polar angle from the cap apex
+    const az = i * GOLDEN_ANGLE;
+    const sinP = Math.sin(phi);
+    const cosP = Math.cos(phi);
+    const x = sphereRadius * sinP * Math.cos(az);
+    const z = sphereRadius * sinP * Math.sin(az);
+    out.push({
+      x,
+      y: sphereRadius * (cosP - 1),         // apex y=0, edges dip below
+      z,
+      nx: sinP * Math.cos(az),
+      ny: cosP,
+      nz: sinP * Math.sin(az),
+      r: Math.hypot(x, z),
+      ringT,
+      phase: Math.random() * Math.PI * 2,   // per-column idle phase
+      bias: Math.random(),                   // per-column height/reactivity bias
+      bandJitter: Math.random() - 0.5,       // per-column FFT-band offset (granularity)
+    });
   }
   return out;
 }

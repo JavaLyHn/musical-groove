@@ -295,6 +295,12 @@ if (fract(vRnd * 53.0) > 0.985) {
 // brilliance micro-sparks
 if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += vec3(1.0) * uBrilliance * 2.0 * _upper;
 
+// soft knee (Reinhard) on the body emissive: compress the hot core's highlights so
+// the peak stays 'bright white-hot CUBES' (gaps/structure survive) instead of a flat
+// burned blob — the brighter a fragment, the more it's compressed.
+float _mx = max(_emis.r, max(_emis.g, _emis.b));
+_emis *= 1.0 / (1.0 + _mx * 0.5);
+
 // ripple overrides bypass the exposure cut so the beat ring/pop pops on the dark field
 _emis = mix(_emis, uRippleColor, clamp(vRippleN, 0.0, 1.0));
 _emis = mix(_emis, vec3(1.0), clamp(vRippleW, 0.0, 1.0));
