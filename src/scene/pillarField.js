@@ -70,6 +70,7 @@ export function createPillarField() {
       uBaseHeight: { value: f.baseHeight },
       uIdleAmp: { value: f.idleAmp },
       uIdleMix: { value: 1 }, // 0 during music, fades to 1 in silent standby
+      uIdleHeight: { value: m.idleHeight }, // standby column-forest height
 
       uSubBass: { value: 0 }, uBass: { value: 0 }, uLowMid: { value: 0 }, uMid: { value: 0 },
       uHighMid: { value: 0 }, uPresence: { value: 0 }, uBrilliance: { value: 0 }, uAir: { value: 0 },
@@ -249,6 +250,7 @@ export function createPillarField() {
     U.uMaxDelayRows.value = m.radialDelay;
     U.uLevelFloor.value = m.levelFloor;
     U.uWaveAmp.value = m.waveAmp;
+    U.uIdleHeight.value = m.idleHeight;
     U.uSegmented.value = f.segmented === false ? 0 : 1;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
@@ -302,7 +304,7 @@ attribute vec2 aField;
 attribute float aRing;
 attribute float aRnd;
 attribute float aPhase;
-uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp, uIdleMix;
+uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp, uIdleMix, uIdleHeight;
 uniform sampler2D uHistory;
 uniform float uMaxDelayRows, uLevelFloor;
 uniform float uMid;
@@ -323,12 +325,13 @@ vRing = aRing;
 vRnd = aRnd;
 float ring = aRing;
 
-// idle STANDBY swell: gated by uIdleMix — absent while music plays (it would only fight
-// the audio), fades in as an autonomous soft wave when the track goes quiet.
-vec2 mp = aField * 0.04 + vec2(uTime * 0.08, uTime * 0.05);
-float baseN = (snoise(mp) + 1.0) * 0.5;
-float swell = sin(aField.x * 0.04 + aField.y * 0.03 - uTime * 0.5) * 0.5 + 0.5;
-float idle = uIdleAmp * mix(baseN, swell, 0.5) * uIdleMix;
+// idle STANDBY: a FOREST of standing columns (per-column height from layered, slowly
+// drifting noise) so the ripple sweeps through real 3D structure instead of a flat
+// plane. Gated by uIdleMix — absent while music plays (the audio builds the columns then).
+float n1 = (snoise(aField * 0.06 + vec2(uTime * 0.05, 0.0)) + 1.0) * 0.5;
+float n2 = (snoise(aField * 0.15 - vec2(0.0, uTime * 0.07)) + 1.0) * 0.5;
+float skyline = pow(n1 * 0.62 + n2 * 0.38, 1.5);     // contrasted terrain -> distinct columns + valleys
+float idle = uIdleHeight * skyline * (0.35 + 0.65 * aRnd) * uIdleMix;
 
 // RADIAL PHASE DELAY (the hero): read this column's bands from the history texture
 // delayed by its radius. centre = now, rim = up to uMaxDelayRows frames ago -> a beat

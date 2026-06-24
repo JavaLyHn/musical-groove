@@ -91,6 +91,8 @@ export const CONFIG = {
     idleSilence: 0.045, // overall level below this counts as "silent"
     idleDebounce: 1.0,  // seconds of silence before the standby wave fades in
     idleTransition: 1.0,// seconds to fade the standby wave in / out
+    idleHeight: 9.0,    // standby: height of the resting COLUMN FOREST the ripple sweeps through
+                        // (without standing columns the ripple is just a flat plane)
     // standby signature: once idle, a gentle ripple sweeps across the dark field on a
     // timer (the "涟漪一扫而过" look), instead of just a static swell.
     idleRippleEvery: 2.6,    // seconds between standby ripple sweeps

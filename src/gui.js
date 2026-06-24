@@ -100,6 +100,7 @@ export function createGui({ rig, renderer }) {
   fi.add(CONFIG.motion, 'idleDebounce', 0, 5, 0.1).name('防抖 (s)');
   fi.add(CONFIG.motion, 'idleTransition', 0.1, 5, 0.1).name('过渡 (s)');
   fi.add(CONFIG.motion, 'idleSilence', 0, 0.2, 0.005).name('静音阈值');
+  fi.add(CONFIG.motion, 'idleHeight', 0, 18, 0.5).name('待机柱林高度');
   fi.add(CONFIG.motion, 'idleRippleEvery', 0.8, 8, 0.1).name('待机涟漪间隔 (s)');
   fi.add(CONFIG.motion, 'idleRippleStrength', 0, 2, 0.05).name('待机涟漪强度');
 
