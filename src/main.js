@@ -1,4 +1,21 @@
-// Entry point. Tasks 6+ replace the body with the full scene wiring.
+import * as THREE from 'three';
+import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js';
+
 const canvas = document.getElementById('app');
-const ctx = canvas.getContext('webgl2');
-console.log('[声音星球] boot', ctx ? 'webgl2 ok' : 'no webgl2');
+const renderer = createRenderer(canvas);
+const camera = createCamera();
+const scene = createScene();
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
