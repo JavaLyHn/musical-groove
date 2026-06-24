@@ -20,6 +20,7 @@ export function createCameraRig(camera, scene) {
     distance: c.distance ?? 190,
     targetY: c.targetY ?? 7,
     azimuthDeg: c.azimuthDeg ?? 0,
+    orbitSpeed: c.orbitSpeed ?? 0, // rad/s of slow auto-spin (0 = static)
   };
 
   function apply() {
@@ -72,7 +73,12 @@ export function createCameraRig(camera, scene) {
     });
   }
 
-  // Static camera -> nothing to advance per frame.
-  function update() {}
-  return { update };
+  // Slow auto-spin: advance the azimuth by orbitSpeed (rad/s) and re-apply. apply() also
+  // runs every frame so live edits to `state` (from the ?gui panel) take effect at once.
+  /** @param {number} dt */
+  function update(dt) {
+    if (s.orbitSpeed) s.azimuthDeg += s.orbitSpeed * dt * (180 / Math.PI);
+    apply();
+  }
+  return { update, apply, state: s };
 }
