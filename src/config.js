@@ -54,7 +54,7 @@ export const CONFIG = {
   camera: { fov: 64, height: 26, distance: 112, orbitSpeed: 0, bob: 0, lookAtY: 7.0 },
   post: { bloomStrength: 0.10, bloomRadius: 0.5, bloomThreshold: 0.86, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
-  quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets)
-  fpsCap: 60,
-  maxPixelRatio: 2,
+  quality: 'mid',            // 'low' | 'mid' | 'high' (quality.js applies presets; override live with ?q=)
+  fpsCap: 30,                // preset overrides this
+  maxPixelRatio: 1.25,       // preset overrides this
 };

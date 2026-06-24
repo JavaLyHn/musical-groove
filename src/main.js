@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { applyQuality } from './quality.js';
+// Live quality override for finding a machine's sweet spot: ?q=low|mid|high
+const _q = new URLSearchParams(location.search).get('q');
+if (_q === 'low' || _q === 'mid' || _q === 'high') CONFIG.quality = _q;
 applyQuality(CONFIG);
 
 import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js';
