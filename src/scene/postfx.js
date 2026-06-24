@@ -45,11 +45,13 @@ const FinalShader = {
 export function createComposer(renderer, scene, camera) {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
+
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     CONFIG.post.bloomStrength, CONFIG.post.bloomRadius, CONFIG.post.bloomThreshold,
   );
   composer.addPass(bloom);
+
   const final = new ShaderPass(FinalShader);
   composer.addPass(final);
 
@@ -58,6 +60,7 @@ export function createComposer(renderer, scene, camera) {
     bloom.setSize(w, h);
     final.uniforms.uResolution.value.set(w, h);
   }
+
   let bloomPulse = 0;
   function update(dt, bass = 0) {
     final.uniforms.uTime.value += dt;
@@ -65,6 +68,7 @@ export function createComposer(renderer, scene, camera) {
     bloomPulse = Math.max(bloomPulse * (1 - 5 * dt), bass);
     bloom.strength = CONFIG.post.bloomStrength + bloomPulse * CONFIG.post.bloomSpike;
   }
+
   setSize(window.innerWidth, window.innerHeight);
   return { composer, setSize, update };
 }

@@ -14,6 +14,7 @@ export const CONFIG = {
     ramp: ['#2A3C90', '#3F52B0', '#6E78C8', '#8E8AE0', '#A99CF5'], // cool blue -> vivid lavender
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
+    deep: '#06080F',         // deep-space color the far cubes fog into (darker than bg)
   },
 
   field: {
@@ -35,8 +36,9 @@ export const CONFIG = {
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)
   },
 
-  // atmospheric haze (depth): scaled to the large scene
-  fog: { near: 70, far: 320 },
+  // depth fog -> far cubes sink into the cool deep-space color while the
+  // foreground/core stay bright. Volume, not a flat painting.
+  fog: { near: 60, far: 160 },
 
   // beat-triggered radial shockwave rippling outward across the field
   wave: { speed: 40.0, width: 9.0, amp: 12.0, decay: 1.4 },
