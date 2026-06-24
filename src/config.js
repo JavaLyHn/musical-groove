@@ -113,9 +113,13 @@ export const CONFIG = {
 
   // floating embers: additive white sparks that burst from the core on strong
   // beats and slowly drift up + fade — the "alive, has energy" top layer.
+  // RARE meteors (not a constant spark cloud): each fires on a big onset (CONFIG.meteor)
+  // as a directional streak of `meteorTrail` points sharing a velocity, the tail staggered
+  // older so it fades behind the head. `count` is just the recycled point-pool size.
   sparks: {
-    count: 420, burst: 44, burstHat: 10, life: 2.6, size: 2.0,
+    count: 420, life: 2.4, size: 2.2,
     rise: 6.0, spread: 11.0, spawnR: 38, spawnYmin: 5, spawnYmax: 17,
+    meteorTrail: 16, meteorSpeed: 72,
   },
 
   // spectral-flux beat detection (adaptive threshold). Fed the RAW spectrum.

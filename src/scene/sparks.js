@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
+import { createTrigger } from '../util/trigger.js';
 
 // A soft round sprite so each point reads as a glowing ember, not a square.
 function makeSparkTexture() {
@@ -46,33 +47,40 @@ export function createSparks() {
   points.frustumCulled = false;
 
   let cursor = 0;
-  function spawn(count) {
-    for (let j = 0; j < count; j++) {
+  // Launch a meteor: a streak of points sharing ONE velocity (so it moves rigidly),
+  // started high near the rim and arcing across + down. The tail is staggered "older"
+  // (dimmer) and the head skips the ember pop-in so it reads bright immediately.
+  function spawnMeteor() {
+    const ang = Math.random() * Math.PI * 2;
+    const startR = cfg.spawnR * (1.6 + Math.random() * 0.8);
+    const sx = Math.cos(ang) * startR;
+    const sz = Math.sin(ang) * startR;
+    const sy = cfg.spawnYmax * (1.6 + Math.random() * 1.2);
+    const len = Math.hypot(sx, sz) + 1e-3;
+    const speed = cfg.meteorSpeed * (0.8 + 0.5 * Math.random());
+    const vx = (-sx / len) * speed;        // travel toward (and past) the centre
+    const vz = (-sz / len) * speed;
+    const vy = -cfg.meteorSpeed * 0.35;     // arc downward
+    for (let k = 0; k < cfg.meteorTrail; k++) {
       const i = cursor;
       cursor = (cursor + 1) % N;
-      const ang = Math.random() * Math.PI * 2;
-      const rad = Math.random() * cfg.spawnR;
-      const x = Math.cos(ang) * rad;
-      const z = Math.sin(ang) * rad;
-      const y = cfg.spawnYmin + Math.random() * (cfg.spawnYmax - cfg.spawnYmin);
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
-      // gentle outward + buoyant up, with jitter
-      const out = 0.4 + Math.random() * 0.6;
-      const inv = 1 / (rad + 1e-3);
-      vel[i * 3] = x * inv * cfg.spread * out + (Math.random() - 0.5) * cfg.spread * 0.4;
-      vel[i * 3 + 1] = cfg.rise * (0.6 + Math.random() * 0.8);
-      vel[i * 3 + 2] = z * inv * cfg.spread * out + (Math.random() - 0.5) * cfg.spread * 0.4;
-      age[i] = 0;
-      life[i] = cfg.life * (0.7 + Math.random() * 0.6);
+      const back = k / cfg.meteorTrail;      // 0 = head, ~1 = tail
+      positions[i * 3] = sx - vx * back * 0.05;     // tail trails behind the head along -v
+      positions[i * 3 + 1] = sy - vy * back * 0.05;
+      positions[i * 3 + 2] = sz - vz * back * 0.05;
+      vel[i * 3] = vx;
+      vel[i * 3 + 1] = vy;
+      vel[i * 3 + 2] = vz;
+      age[i] = (0.16 + back * 0.45) * cfg.life; // skip the pop-in; tail starts dimmer
+      life[i] = cfg.life;
     }
   }
 
-  function update(beat, dt) {
-    // ember burst on the downbeat (kick), scaled by strength; a light sprinkle on hats
-    if (beat.kick > 0) spawn(Math.round(cfg.burst * (0.6 + 0.6 * Math.min(beat.kick, 1))));
-    if (beat.hat > 0) spawn(cfg.burstHat);
+  const meteorTrigger = createTrigger(CONFIG.meteor);
+  function update(onset, dt) {
+    // rare, ceremonial meteors only: the big-onset trigger carries a long cooldown,
+    // so it's the occasional shooting star — not a constant spark cloud.
+    if (meteorTrigger.fire(onset) > 0) spawnMeteor();
 
     for (let i = 0; i < N; i++) {
       if (age[i] >= life[i]) {                     // dead -> invisible

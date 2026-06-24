@@ -105,7 +105,7 @@ function frame() {
   field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset);
   core.update(levels.bass, dt);
   stars.update(dt);
-  sparks.update(beat, dt);
+  sparks.update(onset, dt);
   rig.update(dt);
   updateFx(dt, levels.bass);
   composer.render();
