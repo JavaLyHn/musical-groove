@@ -5,6 +5,7 @@ import { createCore } from './scene/core.js';
 import { createStarfield } from './scene/starfield.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
+import { createComposer } from './scene/postfx.js';
 
 const canvas = document.getElementById('app');
 const renderer = createRenderer(canvas);
@@ -22,6 +23,7 @@ const stars = createStarfield();
 scene.add(stars.points);
 
 const rig = createCameraRig(camera);
+const { composer, setSize } = createComposer(renderer, scene, camera);
 
 const clock = new THREE.Clock();
 function frame() {
@@ -32,7 +34,7 @@ function frame() {
   core.update(levels.bass, dt);
   stars.update(dt);
   rig.update(dt);
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -41,4 +43,5 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  setSize(window.innerWidth, window.innerHeight);
 });
