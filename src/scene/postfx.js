@@ -29,7 +29,8 @@ const FinalShader = {
     void main(){
       vec2 d = vUv - 0.5;
       float r2 = dot(d, d);
-      vec2 off = d * r2 * uAberration;                 // radial CA, grows toward edges
+      float edge = smoothstep(0.10, 0.32, r2);         // confine CA to the outer frame, not the whole screen
+      vec2 off = d * r2 * edge * uAberration;          // radial CA, edges only (~1-2px)
       vec3 col;
       col.r = texture2D(tDiffuse, vUv - off).r;
       col.g = texture2D(tDiffuse, vUv).g;

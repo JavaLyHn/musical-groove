@@ -14,7 +14,7 @@ export const CONFIG = {
     ramp: ['#0E1538', '#27387E', '#4E6BC0', '#9A8FE6', '#E8ECFF'], // near-black → deep-blue → cyan-blue → lavender → white-hot
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
-    deep: '#06080F',         // deep-space color the far cubes fog into (darker than bg)
+    deep: '#060A1C',         // cool deep-space color the far cubes recede into (darker + bluer than bg)
   },
 
   field: {
@@ -37,9 +37,10 @@ export const CONFIG = {
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)
   },
 
-  // depth fog -> far cubes sink into the cool deep-space color while the
-  // foreground/core stay bright. Volume, not a flat painting.
-  fog: { near: 60, far: 160 },
+  // depth fog -> from mid-field outward the far cubes sink into the cool
+  // deep-space color while the foreground/core stay bright. Volume, not a flat
+  // painting. near≈the bright central cluster, far≈the back edge of the field.
+  fog: { near: 92, far: 208 },
 
   // beat-triggered radial shockwave rippling outward across the field
   wave: { speed: 40.0, width: 9.0, amp: 12.0, decay: 1.4 },
@@ -48,8 +49,8 @@ export const CONFIG = {
   stars: { count: 1400, radius: 220 },
   // STATIC camera (no orbit/bob) — LOW oblique 3/4 view across the field so the
   // columns stand up, fill the frame, and their up/down motion is visible.
-  camera: { fov: 64, height: 40, distance: 78, orbitSpeed: 0, bob: 0, lookAtY: 2.0 },
-  post: { bloomStrength: 0.16, bloomRadius: 0.5, bloomThreshold: 0.78, vignette: 1.2, aberration: 0.01, grain: 0.028, bloomSpike: 0.06 },
+  camera: { fov: 64, height: 52, distance: 96, orbitSpeed: 0, bob: 0, lookAtY: 2.0 },
+  post: { bloomStrength: 0.16, bloomRadius: 0.5, bloomThreshold: 0.78, vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06 },
 
   quality: 'high',           // 'low' | 'mid' | 'high' (quality.js applies presets)
   fpsCap: 60,
