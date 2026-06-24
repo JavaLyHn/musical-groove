@@ -10,6 +10,8 @@ import { createStarfield } from './scene/starfield.js';
 import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
+import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
+import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
 
 const canvas = document.getElementById('app');
@@ -17,7 +19,8 @@ const renderer = createRenderer(canvas);
 const camera = createCamera();
 const scene = createScene();
 
-const audio = createSimulatedAudioSource();
+// `audio` starts simulated and is swapped to the real source once connected.
+let audio = createSimulatedAudioSource();
 const field = createPillarField();
 scene.add(field.mesh);
 scene.add(field.capMesh);
@@ -33,6 +36,21 @@ scene.add(atmosphere.sprite);
 
 const rig = createCameraRig(camera);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
+
+// Swap the simulated source for real system audio (prefers a BlackHole-style
+// loopback device; falls back to the default input). Same interface -> no
+// visual changes. Returns a status label for the UI.
+async function connectRealAudio() {
+  const deviceId = await pickLoopbackDeviceId();
+  const web = await createWebAudioSource({ deviceId });
+  web.update(0);
+  audio = web;
+  console.log('[声音星球] audio connected:', web.label, '| loopback device:', !!deviceId);
+  return deviceId ? '● ' + web.label : '● ' + web.label + '（建议用 BlackHole 取系统声音）';
+}
+const controls = createAudioControls({ onConnect: connectRealAudio });
+// headless / quick test hook: ?autoaudio connects without a click
+if (new URLSearchParams(location.search).has('autoaudio')) controls.connect();
 
 const clock = new THREE.Clock();
 
