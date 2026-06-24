@@ -22,6 +22,7 @@ export const CONFIG = {
     falloff: 52.0,           // WIDE falloff -> a broad bright center, not a sharp spike
     baseHeight: 4.0,         // tall base so columns read as tall columns
     reactive: 12.0,          // spectrum relief (eased so the center spreads, not spikes)
+    jitter: 3.5,             // per-column random static height -> jagged independent-cube skyline
     idleAmp: 1.4,            // idle breathing so columns always visibly move
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
@@ -30,7 +31,7 @@ export const CONFIG = {
     decay: 0.90,             // slow fall per 1/60s
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
-    pillarWidth: 2.3,        // matches the denser grid (distinct, small gaps)
+    pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes
     capThickness: 0.55,      // peak-hold cap thickness
     capSink: 0.985,          // cap sink per 1/60s (slow descent)
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)

@@ -25,6 +25,8 @@ export function buildPillarLayout(grid, spacing, sphereRadius, capAngle) {
         ny: Math.cos(phi),
         nz: sinP * Math.sin(az),
         r, ringT,
+        phase: Math.random() * Math.PI * 2,   // per-column idle phase
+        bias: Math.random(),                   // per-column height/reactivity bias
       });
     }
   }
@@ -35,14 +37,18 @@ export function ringBandIndex(ringT, bands) {
   return clamp(Math.round(ringT * (bands - 1)), 0, bands - 1);
 }
 
-// Idle breathing: deterministic layered sines (no RNG, test-friendly).
-function idle(r, t, cfg) {
-  return cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + r * 0.35));
+// Idle breathing per column (phase varies per column -> neighbours bounce out of
+// sync, reading as independent cubes rather than a breathing shell).
+function idle(phase, t, cfg) {
+  return cfg.idleAmp * (0.5 + 0.5 * Math.sin(t * cfg.idleSpeed + phase));
 }
 
-export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg) {
+// `phase` and `bias` are per-column (from the layout). bias adds a fixed random
+// height and varies the reactivity, so adjacent columns differ -> a jagged
+// "thousands of independent cubes" skyline instead of a smooth radial shell.
+export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0) {
   const band = ringBandIndex(ringT, spectrum.length);
-  const base = cfg.baseHeight + radialEnergy(r, cfg.centerPeak, cfg.falloff);
-  const reactive = spectrum[band] * cfg.reactive * (1 - 0.2 * ringT); // gentle center emphasis -> wider active area
-  return base + reactive + idle(r, t, cfg);
+  const base = cfg.baseHeight + radialEnergy(r, cfg.centerPeak, cfg.falloff) + bias * cfg.jitter;
+  const reactive = spectrum[band] * cfg.reactive * (0.4 + 0.6 * bias) * (1 - 0.2 * ringT);
+  return base + reactive + idle(phase, t, cfg);
 }

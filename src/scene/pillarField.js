@@ -112,7 +112,7 @@ export function createPillarField() {
 
     for (let i = 0; i < n; i++) {
       const L = layout[i];
-      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f);
+      let target = pillarTargetHeight(L.ringT, L.r, spectrum, levels, t, f, L.phase, L.bias);
       for (let k = 0; k < waves.length; k++) {
         const d = (L.r - waves[k].age * w.speed) / w.width;
         target += w.amp * Math.exp(-d * d) * Math.exp(-waves[k].age * w.decay);
