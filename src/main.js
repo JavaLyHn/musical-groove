@@ -27,7 +27,7 @@ const stars = createStarfield();
 scene.add(stars.points);
 
 const rig = createCameraRig(camera);
-const { composer, setSize } = createComposer(renderer, scene, camera);
+const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
 
 const clock = new THREE.Clock();
 
@@ -51,6 +51,7 @@ function frame() {
   core.update(levels.bass, dt);
   stars.update(dt);
   rig.update(dt);
+  updateFx(dt);
   composer.render();
 }
 requestAnimationFrame(frame);

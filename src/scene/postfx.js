@@ -5,16 +5,40 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { CONFIG } from '../config.js';
 
-const VignetteShader = {
-  uniforms: { tDiffuse: { value: null }, uStrength: { value: CONFIG.post.vignette } },
+// Final pass: radial chromatic aberration (edges) + vignette + animated film
+// grain + dithering. The dither breaks banding in the dark navy gradient.
+const FinalShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uStrength: { value: CONFIG.post.vignette },
+    uAberration: { value: CONFIG.post.aberration },
+    uGrain: { value: CONFIG.post.grain },
+    uTime: { value: 0 },
+    uResolution: { value: new THREE.Vector2(1, 1) },
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uStrength; varying vec2 vUv;
+    uniform sampler2D tDiffuse;
+    uniform float uStrength;
+    uniform float uAberration;
+    uniform float uGrain;
+    uniform float uTime;
+    uniform vec2 uResolution;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
-      vec4 c = texture2D(tDiffuse, vUv);
       vec2 d = vUv - 0.5;
-      float v = smoothstep(0.85, 0.35, length(d) * uStrength);
-      gl_FragColor = vec4(c.rgb * mix(0.55, 1.0, v), c.a);
+      float r2 = dot(d, d);
+      vec2 off = d * r2 * uAberration;                 // radial CA, grows toward edges
+      vec3 col;
+      col.r = texture2D(tDiffuse, vUv - off).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv + off).b;
+      float v = smoothstep(0.9, 0.35, length(d) * uStrength);    // vignette
+      col *= mix(0.5, 1.0, v);
+      col += (hash(vUv * uResolution + uTime) - 0.5) * uGrain;    // animated film grain
+      col += (hash(vUv * uResolution * 0.5 + 19.0) - 0.5) / 255.0; // dither (anti-band)
+      gl_FragColor = vec4(col, 1.0);
     }`,
 };
 
@@ -26,13 +50,17 @@ export function createComposer(renderer, scene, camera) {
     CONFIG.post.bloomStrength, CONFIG.post.bloomRadius, CONFIG.post.bloomThreshold,
   );
   composer.addPass(bloom);
-  const vignette = new ShaderPass(VignetteShader);
-  composer.addPass(vignette);
+  const final = new ShaderPass(FinalShader);
+  composer.addPass(final);
 
   function setSize(w, h) {
     composer.setSize(w, h);
     bloom.setSize(w, h);
+    final.uniforms.uResolution.value.set(w, h);
+  }
+  function update(dt) {
+    final.uniforms.uTime.value += dt;
   }
   setSize(window.innerWidth, window.innerHeight);
-  return { composer, setSize };
+  return { composer, setSize, update };
 }
