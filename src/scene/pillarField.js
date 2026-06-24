@@ -4,6 +4,7 @@ import { buildPillarLayout } from '../util/field.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const RIPPLES = 10;
+const COVER_TINT_AMT = 0.42; // tint strength when an album cover is present (0 = off)
 
 // GPU heightfield: the per-instance ELEVATION is computed in the vertex shader
 // from per-band uniforms + simplex noise, so each frequency band drives its own
@@ -67,6 +68,8 @@ export function createPillarField() {
       uRampWarm: { value: CONFIG.colors.rampWarm.map((h) => new THREE.Color(h)) },
       uRippleColor: { value: new THREE.Color(CONFIG.colors.accent) },
       uWarmth: { value: 0 }, uBrightness: { value: 0 }, uSharpness: { value: 0 },
+      // album-art tint: recolours the field toward the current cover's dominant hue
+      uCoverTint: { value: new THREE.Color(1, 1, 1) }, uCoverTintAmt: { value: 0 },
     });
     U = shader.uniforms;
 
@@ -111,6 +114,22 @@ export function createPillarField() {
     rippleIdx = (rippleIdx + 1) % RIPPLES;
   }
 
+  // album-art tint, lerped toward the latest cover colour so the field's colour
+  // temperature eases across on a track change (set from the page via setCoverColor).
+  const coverCur = [1, 1, 1];
+  const coverTgt = [1, 1, 1];
+  let coverAmtCur = 0;
+  let coverAmtTgt = 0;
+  /** @param {[number, number, number] | null} rgb  sRGB 0..1, or null to fade the tint out */
+  function setCoverColor(rgb) {
+    if (rgb && rgb.length === 3) {
+      coverTgt[0] = rgb[0]; coverTgt[1] = rgb[1]; coverTgt[2] = rgb[2];
+      coverAmtTgt = COVER_TINT_AMT;
+    } else {
+      coverAmtTgt = 0; // ease the tint away; keep the last hue so it fades, not snaps
+    }
+  }
+
   let levelSmooth = 0;
   function update(spectrum, levels, level, beat, timbre, dt) {
     const t = performance.now() / 1000;
@@ -148,9 +167,18 @@ export function createPillarField() {
       U.uRipplePos.value[i].copy(ripples[i].pos);
       U.uRippleTST.value[i].set(ripples[i].time, ripples[i].strength, ripples[i].type);
     }
+
+    // ease the cover tint toward its target (~0.5s cross on a track change)
+    const kc = 1 - Math.exp(-dt * 2.2);
+    coverCur[0] += (coverTgt[0] - coverCur[0]) * kc;
+    coverCur[1] += (coverTgt[1] - coverCur[1]) * kc;
+    coverCur[2] += (coverTgt[2] - coverCur[2]) * kc;
+    coverAmtCur += (coverAmtTgt - coverAmtCur) * kc;
+    U.uCoverTint.value.setRGB(coverCur[0], coverCur[1], coverCur[2], THREE.SRGBColorSpace);
+    U.uCoverTintAmt.value = coverAmtCur;
   }
 
-  return { mesh, update, _layout: layout };
+  return { mesh, update, setCoverColor, _layout: layout };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +278,8 @@ uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, 
 uniform vec3 uRamp[5];
 uniform vec3 uRampWarm[5];
 uniform vec3 uRippleColor;
+uniform vec3 uCoverTint;
+uniform float uCoverTintAmt;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
 vec3 rampOf(vec3 r0, vec3 r1, vec3 r2, vec3 r3, vec3 r4, float t){
   t = clamp(t, 0.0, 1.0);
@@ -266,6 +296,12 @@ vec3 paletteColor(float t){
   vec3 warm = rampOf(uRampWarm[0], uRampWarm[1], uRampWarm[2], uRampWarm[3], uRampWarm[4], t);
   vec3 c = mix(cool, warm, clamp(uWarmth * 1.4 - 0.15, 0.0, 1.0));
   c = mix(c, vec3(0.5, 0.85, 1.0), uBrightness * 0.45 * t);
+  // album-art tint: recolour toward the cover hue while PRESERVING the luminance ramp
+  // (dark floor stays dark) and the white-hot tip (fade the tint out as t -> 1).
+  float _L = dot(c, vec3(0.299, 0.587, 0.114));
+  vec3 _tinted = uCoverTint * (0.35 + 1.25 * _L);
+  float _amt = uCoverTintAmt * (1.0 - smoothstep(0.72, 1.0, t));
+  c = mix(c, _tinted, _amt);
   return c;
 }`;
 

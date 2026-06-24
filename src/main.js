@@ -19,6 +19,7 @@ import { createBeatDetector } from './util/beatDetector.js';
 import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
 import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
+import { createNowPlaying } from './nowPlaying.js';
 
 const canvas = document.getElementById('app');
 const renderer = createRenderer(canvas);
@@ -34,6 +35,10 @@ const shaper = createAudioShaper(CONFIG.audioBins, CONFIG.bands);
 const beatDetector = createBeatDetector();
 const field = createPillarField();
 scene.add(field.mesh);
+
+// System "Now Playing": a top-line overlay (cover + title — artist) fed by the dev
+// server's bridge over SSE, and the cover's dominant colour tints the field's palette.
+const nowPlaying = createNowPlaying({ onColor: (rgb) => field.setCoverColor(rgb) });
 
 const core = createCore();
 scene.add(core.group);

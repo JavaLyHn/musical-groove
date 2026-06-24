@@ -11,3 +11,6 @@ scratchpad/
 node_modules/
 dist/
 .cache/
+
+# Third-party Now-Playing adapter (cloned + built by scripts/setup-nowplaying.sh)
+vendor/
