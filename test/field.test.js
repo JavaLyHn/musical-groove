@@ -3,7 +3,7 @@ import { buildPillarLayout, ringBandIndex, pillarTargetHeight } from '../src/uti
 import { CONFIG } from '../src/config.js';
 
 describe('buildPillarLayout', () => {
-  const layout = buildPillarLayout(40, 1.0, 0.022);
+  const layout = buildPillarLayout(40, 1.0, 60, 0.62);
   it('produces grid*grid pillars', () => {
     expect(layout.length).toBe(1600);
   });

@@ -17,16 +17,15 @@ export function springStep(value, vel, target, stiffness, damping, dt) {
   return { value: nextValue, vel: nextVel };
 }
 
-const _c0 = new THREE.Color(CONFIG.colors.low);
-const _c1 = new THREE.Color(CONFIG.colors.mid);
-const _c2 = new THREE.Color(CONFIG.colors.high);
+// height LUT (idle/low -> white-hot) interpolated across CONFIG.colors.ramp
+const _ramp = CONFIG.colors.ramp.map((hex) => new THREE.Color(hex));
 
 export function colorRamp(t) {
   t = clamp(t, 0, 1);
-  const out = new THREE.Color();
-  if (t < 0.5) out.copy(_c0).lerp(_c1, t / 0.5);
-  else out.copy(_c1).lerp(_c2, (t - 0.5) / 0.5);
-  return out;
+  const n = _ramp.length - 1;
+  const f = t * n;
+  const i = Math.min(Math.floor(f), n - 1);
+  return new THREE.Color().copy(_ramp[i]).lerp(_ramp[i + 1], f - i);
 }
 
 export function radialEnergy(r, peak, falloff) {

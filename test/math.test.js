@@ -31,15 +31,15 @@ describe('springStep', () => {
 });
 
 describe('colorRamp', () => {
-  it('returns the low color at 0 and high color at 1', () => {
+  it('returns the lowest ramp color at 0 and the white-hot top at 1', () => {
     const lo = colorRamp(0);
     const hi = colorRamp(1);
-    expect(lo.getHexString()).toBe('2a3a8c');
-    expect(hi.getHexString()).toBe('d8d0ff');
+    expect(lo.getHexString()).toBe('15205a');
+    expect(hi.getHexString()).toBe('f4f6ff');
   });
-  it('returns a color between mid stops at 0.5', () => {
+  it('returns the middle ramp stop at 0.5', () => {
     const mid = colorRamp(0.5);
-    expect(mid.getHexString()).toBe('6a4fd0');
+    expect(mid.getHexString()).toBe('6e78c8');
   });
 });
 

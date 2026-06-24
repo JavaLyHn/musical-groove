@@ -1,24 +1,30 @@
 import { clamp, radialEnergy } from './math.js';
 
-// Paraboloid dome: y = -curvature * r^2, with analytic normal (2k x, 1, 2k z).
-export function buildPillarLayout(grid, spacing, curvature) {
+// Spherical cap: the square grid is wrapped onto a sphere of `sphereRadius`,
+// apex at the origin (sphere centre at y = -sphereRadius). The cap spans polar
+// angle [0, capAngle] from the apex, so edges curve down and away -> a curved
+// planetary horizon. The outward sphere normal is already unit length.
+export function buildPillarLayout(grid, spacing, sphereRadius, capAngle) {
   const c = (grid - 1) / 2;
   const maxR = Math.hypot(c * spacing, c * spacing) || 1;
   const out = [];
   for (let gx = 0; gx < grid; gx++) {
     for (let gz = 0; gz < grid; gz++) {
-      const x = (gx - c) * spacing;
-      const z = (gz - c) * spacing;
-      const r = Math.hypot(x, z);
-      const y = -curvature * r * r;
-      // normal of y = -k(x^2+z^2): gradient (2k x, 1, 2k z)
-      const nxRaw = 2 * curvature * x;
-      const nzRaw = 2 * curvature * z;
-      const len = Math.hypot(nxRaw, 1, nzRaw);
+      const px = (gx - c) * spacing;
+      const pz = (gz - c) * spacing;
+      const r = Math.hypot(px, pz);
+      const ringT = clamp(r / maxR, 0, 1);
+      const phi = ringT * capAngle;        // polar angle from the cap apex
+      const az = Math.atan2(pz, px);
+      const sinP = Math.sin(phi);
       out.push({
-        x, y, z,
-        nx: nxRaw / len, ny: 1 / len, nz: nzRaw / len,
-        r, ringT: clamp(r / maxR, 0, 1),
+        x: sphereRadius * sinP * Math.cos(az),
+        y: sphereRadius * (Math.cos(phi) - 1), // apex y=0, edges dip below
+        z: sphereRadius * sinP * Math.sin(az),
+        nx: sinP * Math.cos(az),
+        ny: Math.cos(phi),
+        nz: sinP * Math.sin(az),
+        r, ringT,
       });
     }
   }

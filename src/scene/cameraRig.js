@@ -9,7 +9,7 @@ export function createCameraRig(camera) {
     camera.position.x = Math.sin(a) * c.distance;
     camera.position.z = Math.cos(a) * c.distance;
     camera.position.y = c.height + Math.sin(t * 0.15) * c.bob;
-    camera.lookAt(0, 1.5, 0);
+    camera.lookAt(0, c.lookAtY ?? 1.5, 0);
   }
   return { update };
 }

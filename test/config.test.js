@@ -10,8 +10,12 @@ describe('CONFIG', () => {
     expect(CONFIG.maxPixelRatio).toBe(2);
   });
   it('defines the full palette as hex strings', () => {
-    for (const k of ['bg0', 'bg1', 'low', 'mid', 'high', 'core']) {
+    for (const k of ['bg0', 'bg1', 'core', 'accent']) {
       expect(CONFIG.colors[k]).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+    expect(Array.isArray(CONFIG.colors.ramp)).toBe(true);
+    for (const c of CONFIG.colors.ramp) {
+      expect(c).toMatch(/^#[0-9a-fA-F]{6}$/);
     }
   });
   it('defines spring stiffness and damping for the field', () => {

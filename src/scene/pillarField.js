@@ -7,7 +7,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 export function createPillarField() {
   const f = CONFIG.field;
-  const layout = buildPillarLayout(CONFIG.grid, CONFIG.spacing, CONFIG.curvature);
+  const layout = buildPillarLayout(CONFIG.grid, CONFIG.spacing, CONFIG.sphereRadius, CONFIG.capAngle);
   const n = layout.length;
 
   const geo = new THREE.BoxGeometry(f.pillarWidth, 1, f.pillarWidth); // unit-tall, base at y=-0.5..0.5
@@ -15,7 +15,7 @@ export function createPillarField() {
 
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0e22, roughness: 0.55, metalness: 0.0,
-    emissive: 0xffffff, emissiveIntensity: 1.0, vertexColors: false,
+    emissive: 0xffffff, emissiveIntensity: 1.55, vertexColors: false,
   });
 
   // Per-instance height attribute + segmented-stripe shader injection.
