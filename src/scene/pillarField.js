@@ -79,6 +79,7 @@ export function createPillarField() {
       uWhiteElev: { value: f.whiteElev }, uBrightFloor: { value: f.brightFloor }, uRadialDim: { value: f.radialDim },
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
+      uSegmented: { value: f.segmented === false ? 0 : 1 }, // 1 = segmented blocks, 0 = smooth bar
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
       uRampWarm: { value: CONFIG.colors.rampWarm.map((h) => new THREE.Color(h)) },
       uRippleColor: { value: new THREE.Color(CONFIG.colors.accent) },
@@ -235,6 +236,7 @@ export function createPillarField() {
     U.uMaxDelayRows.value = m.radialDelay;
     U.uLevelFloor.value = m.levelFloor;
     U.uWaveAmp.value = m.waveAmp;
+    U.uSegmented.value = f.segmented === false ? 0 : 1;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
     U.uHighMid.value = bandEnv[4]; U.uPresence.value = bandEnv[5]; U.uBrilliance.value = bandEnv[6]; U.uAir.value = bandEnv[7];
@@ -387,7 +389,7 @@ vSegY = position.y * totalHeight;
 transformed.y = position.y * totalHeight;`;
 
 const FRAG_COMMON = `#include <common>
-uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel;
+uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel, uSegmented;
 uniform float uTime, uWarmth, uBrightness, uSharpness;
 uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, uAir;
 uniform vec3 uRamp[5];
@@ -427,6 +429,7 @@ float _hN = clamp(vElev / uWhiteElev, 0.0, 1.0);
 float _b = smoothstep(uBrightFloor, 0.95, _hN);
 float _seg = smoothstep(uGapRatio, uGapRatio + 0.10, fract(vSegY / uSegPitch));
 float _segMask = mix(0.22, 1.0, _seg);
+_segMask = mix(1.0, _segMask, uSegmented); // uSegmented 0 -> no gaps -> one smooth continuous bar
 vec3 _emis = paletteColor(_b) * _segMask;
 _emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
 _emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus

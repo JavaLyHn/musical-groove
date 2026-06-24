@@ -53,6 +53,7 @@ export const CONFIG = {
     brightFloor: 0.2,        // dark-blue floor: below this (normalized elevation) a column stays dark ->
                              //   dark field + hot core contrast holds even at the loudest moment
     radialDim: 0.30,         // mild edge dimming for depth (height now carries most of the brightness)
+    segmented: true,         // true = stacked-block segments; false = one smooth continuous bar
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
     pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes

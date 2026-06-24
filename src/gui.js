@@ -73,6 +73,9 @@ export function createGui({ rig, renderer }) {
   gui.domElement.classList.add('lyhn-gui');
   document.body.appendChild(gui.domElement);
 
+  const fl = gui.addFolder('外观 Look');
+  fl.add(CONFIG.field, 'segmented').name('分段柱体 (关=流畅整条)');
+
   const fr = gui.addFolder('涟漪 Ripple');
   fr.add(CONFIG.ripple, 'sensitivity', 0, 0.5, 0.005).name('灵敏度 (低=易触发)');
   fr.add(CONFIG.ripple, 'cooldown', 0, 30, 1).name('冷却帧 (0=每拍)');
