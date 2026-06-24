@@ -7,6 +7,7 @@ import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js
 import { createPillarField } from './scene/pillarField.js';
 import { createCore } from './scene/core.js';
 import { createStarfield } from './scene/starfield.js';
+import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
 import { createComposer } from './scene/postfx.js';
@@ -19,12 +20,16 @@ const scene = createScene();
 const audio = createSimulatedAudioSource();
 const field = createPillarField();
 scene.add(field.mesh);
+scene.add(field.capMesh);
 
 const core = createCore();
 scene.add(core.group);
 
 const stars = createStarfield();
 scene.add(stars.points);
+
+const atmosphere = createAtmosphere();
+scene.add(atmosphere.sprite);
 
 const rig = createCameraRig(camera);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);

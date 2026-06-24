@@ -41,9 +41,16 @@ export function createPillarField() {
   mesh.geometry.setAttribute('aHeight', aHeight);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.frustumCulled = false;
-
-  // enable per-instance color (sets vColor in the shader)
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+
+  // ---- peak-hold caps: a thin bright lip per pillar that jumps to the peak and sinks slowly ----
+  const peak = new Float32Array(n).fill(f.baseHeight);
+  const capGeo = new THREE.BoxGeometry(f.pillarWidth * 1.05, f.capThickness, f.pillarWidth * 1.05);
+  const capMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const capMesh = new THREE.InstancedMesh(capGeo, capMat, n);
+  capMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+  capMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  capMesh.frustumCulled = false;
 
   const heights = new Float32Array(n).fill(f.baseHeight);
   const maxR = layout.reduce((m, L) => Math.max(m, L.r), 0) || 1;
@@ -56,6 +63,7 @@ export function createPillarField() {
   const _p = new THREE.Vector3();
   const _s = new THREE.Vector3();
   const _col = new THREE.Color();
+  const denom = f.centerPeak + f.reactive;
 
   function writeInstance(i, h) {
     const L = layout[i];
@@ -64,16 +72,28 @@ export function createPillarField() {
     _m.compose(_p, quats[i], _s);
     mesh.setMatrixAt(i, _m);
     aHeight.setX(i, h);
-    const hNorm = Math.min(h / (f.centerPeak + f.reactive), 1);
-    colorRamp(hNorm, _col);            // write into _col (no per-frame allocation)
+    colorRamp(Math.min(h / denom, 1), _col); // write into _col (no per-frame allocation)
     mesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 
-  // initial static draw
-  for (let i = 0; i < n; i++) writeInstance(i, heights[i]);
+  function writeCap(i) {
+    const L = layout[i];
+    const show = peak[i] - f.baseHeight > f.capThreshold ? 1 : 0; // restrained: only active pillars
+    _p.set(L.x + L.nx * peak[i], L.y + L.ny * peak[i], L.z + L.nz * peak[i]);
+    _s.set(show, show, show);                                     // scale 0 hides the cap
+    _m.compose(_p, quats[i], _s);
+    capMesh.setMatrixAt(i, _m);
+    colorRamp(Math.min(peak[i] / denom, 1), _col);
+    capMesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
+  }
+
+  // initial draw (caps hidden)
+  for (let i = 0; i < n; i++) { writeInstance(i, heights[i]); writeCap(i); }
   mesh.instanceMatrix.needsUpdate = true;
   aHeight.needsUpdate = true;
   mesh.instanceColor.needsUpdate = true;
+  capMesh.instanceMatrix.needsUpdate = true;
+  capMesh.instanceColor.needsUpdate = true;
 
   function update(spectrum, levels, dt) {
     const t = performance.now() / 1000;
@@ -87,8 +107,8 @@ export function createPillarField() {
       if (waves[k].age * w.speed > maxR + w.width * 3) waves.splice(k, 1);
     }
 
-    // slow fall is framerate-independent (f.decay is defined per 1/60 s)
-    const fall = Math.pow(f.decay, dt * 60);
+    const fall = Math.pow(f.decay, dt * 60);      // slow melt-down (framerate-independent)
+    const capSink = Math.pow(f.capSink, dt * 60); // slow cap descent
 
     for (let i = 0; i < n; i++) {
       const L = layout[i];
@@ -102,12 +122,17 @@ export function createPillarField() {
       h = target > h ? h + (target - h) * f.attack
                      : f.baseHeight + (h - f.baseHeight) * fall;
       heights[i] = Math.max(f.baseHeight, h);
+      // peak-hold: jump to the peak, then sink slowly
+      peak[i] = Math.max(heights[i], f.baseHeight + (peak[i] - f.baseHeight) * capSink);
       writeInstance(i, heights[i]);
+      writeCap(i);
     }
     mesh.instanceMatrix.needsUpdate = true;
     aHeight.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
+    capMesh.instanceMatrix.needsUpdate = true;
+    capMesh.instanceColor.needsUpdate = true;
   }
 
-  return { mesh, update, _heights: heights, _writeInstance: writeInstance, _layout: layout };
+  return { mesh, capMesh, update, _heights: heights, _writeInstance: writeInstance, _layout: layout };
 }

@@ -32,6 +32,9 @@ export const CONFIG = {
     segPitch: 1.0,           // world height of one block segment
     gapRatio: 0.14,          // dark gap fraction per segment
     pillarWidth: 2.0,        // wide -> pillars nearly touch (no gaps/seams)
+    capThickness: 0.5,       // peak-hold cap thickness (thin bright lip)
+    capSink: 0.985,          // cap sink per 1/60s (slow descent)
+    capThreshold: 1.4,       // only cap pillars risen this far above base (restrained)
   },
 
   // atmospheric haze (depth): scaled to the large scene
