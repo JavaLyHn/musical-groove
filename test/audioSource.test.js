@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { createSimulatedAudioSource } from '../src/audioSource.js';
+import { CONFIG } from '../src/config.js';
 
 describe('createSimulatedAudioSource', () => {
-  it('returns a 64-length spectrum with values in [0,1]', () => {
+  it('returns an audioBins-length spectrum with values in [0,1]', () => {
     const a = createSimulatedAudioSource();
     a.update(0.1);
     const s = a.getSpectrum();
-    expect(s.length).toBe(64);
+    expect(s.length).toBe(CONFIG.audioBins);
     for (const v of s) {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(1);

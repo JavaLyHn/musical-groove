@@ -29,7 +29,7 @@ const scene = createScene();
 let audio = createSimulatedAudioSource();
 // The shaper turns whatever source is live into a per-band-normalized drive (so
 // every ring dances on its own band) + an overall amplitude level.
-const shaper = createAudioShaper(CONFIG.bands);
+const shaper = createAudioShaper(CONFIG.audioBins, CONFIG.bands);
 // Spectral-flux beat detection (adaptive threshold), fed the raw spectrum.
 const beatDetector = createBeatDetector();
 const field = createPillarField();
@@ -90,8 +90,8 @@ function frame() {
   audio.update(dt);
   const raw = audio.getSpectrum();
   const beat = beatDetector.process(raw, dt);
-  const { spectrum, levels, level } = shaper.process(raw, dt);
-  field.update(spectrum, levels, level, beat, dt);
+  const { spectrum, levels, level, warmth, brightness, sharpness } = shaper.process(raw, dt);
+  field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt);
   core.update(levels.bass, dt);
   stars.update(dt);
   sparks.update(beat, dt);

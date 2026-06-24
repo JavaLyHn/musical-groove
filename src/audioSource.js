@@ -9,7 +9,7 @@ import { clamp } from './util/math.js';
  * @param {number} [bands]
  * @returns {import('./types.js').AudioSource}
  */
-export function createSimulatedAudioSource(bands = CONFIG.bands) {
+export function createSimulatedAudioSource(bands = CONFIG.audioBins) {
   const spectrum = new Float32Array(bands);
   const bpm = 120;
   let t = 0;

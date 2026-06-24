@@ -64,7 +64,9 @@ export function createPillarField() {
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
+      uRampWarm: { value: CONFIG.colors.rampWarm.map((h) => new THREE.Color(h)) },
       uRippleColor: { value: new THREE.Color(CONFIG.colors.accent) },
+      uWarmth: { value: 0 }, uBrightness: { value: 0 }, uSharpness: { value: 0 },
     });
     U = shader.uniforms;
 
@@ -109,9 +111,12 @@ export function createPillarField() {
     rippleIdx = (rippleIdx + 1) % RIPPLES;
   }
 
-  function update(spectrum, levels, level, beat, dt) {
+  let levelSmooth = 0;
+  function update(spectrum, levels, level, beat, timbre, dt) {
     const t = performance.now() / 1000;
     const fall = Math.pow(f.decay, dt * 60);
+    // release tail: level rises fast but melts down slowly when the music drops/stops
+    levelSmooth += (level - levelSmooth) * (level > levelSmooth ? 0.4 : 0.04);
 
     // aggregate the 64 normalized bands into 8 perceptual groups, attack/decay smoothed
     const per = Math.max(1, Math.floor(spectrum.length / 8));
@@ -135,7 +140,8 @@ export function createPillarField() {
 
     if (!U) return; // material not compiled yet
     U.uTime.value = t;
-    U.uLevel.value = level;
+    U.uLevel.value = levelSmooth;
+    U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = band8[0]; U.uBass.value = band8[1]; U.uLowMid.value = band8[2]; U.uMid.value = band8[3];
     U.uHighMid.value = band8[4]; U.uPresence.value = band8[5]; U.uBrilliance.value = band8[6]; U.uAir.value = band8[7];
     for (let i = 0; i < RIPPLES; i++) {
@@ -239,15 +245,27 @@ transformed.y = position.y * totalHeight;`;
 
 const FRAG_COMMON = `#include <common>
 uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel;
+uniform float uTime, uWarmth, uBrightness, uSharpness;
+uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, uAir;
 uniform vec3 uRamp[5];
+uniform vec3 uRampWarm[5];
 uniform vec3 uRippleColor;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW;
-vec3 rampColor(float t){
+vec3 rampOf(vec3 r0, vec3 r1, vec3 r2, vec3 r3, vec3 r4, float t){
   t = clamp(t, 0.0, 1.0);
-  vec3 c = mix(uRamp[0], uRamp[1], smoothstep(0.0, 0.25, t));
-  c = mix(c, uRamp[2], smoothstep(0.25, 0.5, t));
-  c = mix(c, uRamp[3], smoothstep(0.5, 0.75, t));
-  c = mix(c, uRamp[4], smoothstep(0.75, 1.0, t));
+  vec3 c = mix(r0, r1, smoothstep(0.0, 0.25, t));
+  c = mix(c, r2, smoothstep(0.25, 0.5, t));
+  c = mix(c, r3, smoothstep(0.5, 0.75, t));
+  c = mix(c, r4, smoothstep(0.75, 1.0, t));
+  return c;
+}
+// palette = cool ramp blended toward the warm ramp by warmth, then a high-freq
+// brightness wash toward cyan-white. So the colour follows the music's timbre.
+vec3 paletteColor(float t){
+  vec3 cool = rampOf(uRamp[0], uRamp[1], uRamp[2], uRamp[3], uRamp[4], t);
+  vec3 warm = rampOf(uRampWarm[0], uRampWarm[1], uRampWarm[2], uRampWarm[3], uRampWarm[4], t);
+  vec3 c = mix(cool, warm, clamp(uWarmth * 1.4 - 0.15, 0.0, 1.0));
+  c = mix(c, vec3(0.5, 0.85, 1.0), uBrightness * 0.45 * t);
   return c;
 }`;
 
@@ -258,12 +276,25 @@ float _hN = clamp(vElev / uWhiteElev, 0.0, 1.0);
 float _b = smoothstep(uBrightFloor, 0.95, _hN);
 float _seg = smoothstep(uGapRatio, uGapRatio + 0.10, fract(vSegY / uSegPitch));
 float _segMask = mix(0.22, 1.0, _seg);
-vec3 _emis = rampColor(_b) * _segMask;
+vec3 _emis = paletteColor(_b) * _segMask;
 _emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
 _emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus
 _emis *= uEmissiveGain * (0.45 + 0.55 * uLevel); // exposure cut + loud->bright / quiet->dark
 float _top = smoothstep(0.80, 1.0, vYNorm);
-_emis += rampColor(_b) * _top * 0.5 * _segMask * uEmissiveGain;
+_emis += paletteColor(_b) * _top * 0.5 * _segMask * uEmissiveGain;
+
+// --- surface micro-detail (upper part of pillars), driven by the high bands ---
+float _upper = smoothstep(0.65, 1.0, vYNorm);
+// air shimmer: sparse columns twinkle at their tops
+if (fract(vRnd * 31.0) > 0.93) _emis += vec3(0.6, 0.9, 1.0) * uAir * 2.2 * _upper;
+// presence/sharpness flickers: rare fast white flashes synced to time
+if (fract(vRnd * 53.0) > 0.985) {
+  float _fl = 0.5 + 0.5 * sin(uTime * 40.0 + vRnd * 100.0);
+  _emis += vec3(1.0) * uPresence * (1.0 + uSharpness * 2.0) * _upper * _fl;
+}
+// brilliance micro-sparks
+if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += vec3(1.0) * uBrilliance * 2.0 * _upper;
+
 // ripple overrides bypass the exposure cut so the beat ring/pop pops on the dark field
 _emis = mix(_emis, uRippleColor, clamp(vRippleN, 0.0, 1.0));
 _emis = mix(_emis, vec3(1.0), clamp(vRippleW, 0.0, 1.0));

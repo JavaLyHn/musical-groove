@@ -3,7 +3,8 @@
 // every reader (cameraRig, quality, …). Rename or drop a field here and the
 // `// @ts-check` files that still reference the old name light up red.
 export const CONFIG = {
-  bands: 64,
+  bands: 64,                 // VISUAL bands (mel-rebinned target)
+  audioBins: 256,            // raw FFT bins the source produces (fftSize 512) -> finer band separation
   grid: 40,                  // base; the quality preset raises this at runtime
   spacing: 1.0,
 
@@ -15,7 +16,8 @@ export const CONFIG = {
   colors: {
     bg0: '#0B1330',          // deep navy void (outer gradient + fog) — not pure black
     bg1: '#1B2A57',          // navy center-of-gradient glow
-    ramp: ['#0E1538', '#27387E', '#4E6BC0', '#9A8FE6', '#E8ECFF'], // near-black → deep-blue → cyan-blue → lavender → white-hot
+    ramp: ['#0E1538', '#27387E', '#4E6BC0', '#9A8FE6', '#E8ECFF'], // COOL: near-black → deep-blue → cyan-blue → lavender → white-hot
+    rampWarm: ['#1A1024', '#7E2E3A', '#C0744E', '#E6A88F', '#FFEEE6'], // WARM: dark → maroon → terracotta → peach → warm-white (timbre blend)
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
     deep: '#060A1C',         // cool deep-space color the far cubes recede into (darker + bluer than bg)
@@ -80,8 +82,8 @@ export const CONFIG = {
   beat: {
     // sensitivity maps to the adaptive threshold: thresh = mean + (5 - 4*sensitivity)*std.
     // ~0.7 => mean + ~2*std, so a steady kick keeps firing instead of adapting away.
-    kick: { bandStart: 0,  bandEnd: 3,  sensitivity: 0.72, cooldown: 0.22, strength: 0.34, maxStrength: 1.3, historyLen: 43 },
-    hat:  { bandStart: 16, bandEnd: 30, sensitivity: 0.66, cooldown: 0.16, strength: 0.40, maxStrength: 1.0, historyLen: 43 },
+    kick: { bandStart: 0,  bandEnd: 6,   sensitivity: 0.72, cooldown: 0.22, strength: 0.34, maxStrength: 1.3, historyLen: 43 },
+    hat:  { bandStart: 60, bandEnd: 110, sensitivity: 0.66, cooldown: 0.16, strength: 0.40, maxStrength: 1.0, historyLen: 43 },
   },
 
   // audio shaper: mel re-bin + PER-BAND normalization (each band ÷ its own rolling

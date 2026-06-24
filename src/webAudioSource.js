@@ -43,14 +43,14 @@ export async function createWebAudioSource(opts = {}) {
   if (ctx.state === 'suspended') await ctx.resume();
   const srcNode = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
-  analyser.fftSize = 128;                 // -> 64 frequency bins (matches CONFIG.bands)
+  analyser.fftSize = 512;                 // -> 256 frequency bins (the shaper mel-rebins to CONFIG.bands)
   analyser.smoothingTimeConstant = 0.82;  // temporal smoothing for fluid motion
   srcNode.connect(analyser);
 
-  const binCount = analyser.frequencyBinCount; // 64
+  const binCount = analyser.frequencyBinCount; // 256
   const bytes = new Uint8Array(binCount);
-  const spectrum = new Float32Array(bands);
-  const third = Math.floor(bands / 3);
+  const spectrum = new Float32Array(binCount);
+  const third = Math.floor(binCount / 3);
   const avg = (/** @type {number} */ lo, /** @type {number} */ hi) => {
     let s = 0;
     for (let i = lo; i < hi; i++) s += spectrum[i];
@@ -62,11 +62,10 @@ export async function createWebAudioSource(opts = {}) {
     label: (track && track.label) || 'audio input',
     update() {
       analyser.getByteFrequencyData(bytes);
-      const m = Math.min(binCount, bands);
-      for (let i = 0; i < bands; i++) spectrum[i] = i < m ? bytes[i] / 255 : 0;
+      for (let i = 0; i < binCount; i++) spectrum[i] = bytes[i] / 255;
     },
     getSpectrum() { return spectrum; },
-    getLevels() { return { bass: avg(0, third), mid: avg(third, 2 * third), treble: avg(2 * third, bands) }; },
+    getLevels() { return { bass: avg(0, third), mid: avg(third, 2 * third), treble: avg(2 * third, binCount) }; },
     stop() { stream.getTracks().forEach((t) => t.stop()); ctx.close(); },
   };
 }
