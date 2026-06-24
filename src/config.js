@@ -1,3 +1,7 @@
+// @ts-check
+// The shape of this literal IS the CONFIG type: TypeScript infers it and checks
+// every reader (cameraRig, quality, …). Rename or drop a field here and the
+// `// @ts-check` files that still reference the old name light up red.
 export const CONFIG = {
   bands: 64,
   grid: 40,                  // base; the quality preset raises this at runtime

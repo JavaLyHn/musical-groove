@@ -1,9 +1,14 @@
+// @ts-check
 import { CONFIG } from './config.js';
 import { clamp } from './util/math.js';
 
 // Procedural stand-in for a real FFT. Synthesizes a believable spectrum with
 // a steady beat. Swap this for a Web Audio AnalyserNode source later; the
 // returned shape (getSpectrum/getLevels/update) is the stable contract.
+/**
+ * @param {number} [bands]
+ * @returns {import('./types.js').AudioSource}
+ */
 export function createSimulatedAudioSource(bands = CONFIG.bands) {
   const spectrum = new Float32Array(bands);
   const bpm = 120;
@@ -21,7 +26,7 @@ export function createSimulatedAudioSource(bands = CONFIG.bands) {
     }
   }
 
-  function band(lo, hi) {
+  function band(/** @type {number} */ lo, /** @type {number} */ hi) {
     let sum = 0;
     for (let i = lo; i < hi; i++) sum += spectrum[i];
     return clamp(sum / (hi - lo), 0, 1);

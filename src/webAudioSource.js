@@ -1,3 +1,4 @@
+// @ts-check
 import { CONFIG } from './config.js';
 import { clamp } from './util/math.js';
 
@@ -5,6 +6,9 @@ import { clamp } from './util/math.js';
 // an aggregate device) when present; otherwise return undefined so we fall back
 // to the default input (a microphone). Device labels are only exposed after a
 // permission grant, so we briefly open and close a default stream first.
+/**
+ * @returns {Promise<string|undefined>} the loopback device id, or undefined to fall back to the default input.
+ */
 export async function pickLoopbackDeviceId() {
   try {
     const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -22,14 +26,19 @@ export async function pickLoopbackDeviceId() {
 // Real audio source: captures an input device through a Web Audio AnalyserNode
 // (true FFT) and exposes the SAME interface as the simulated source
 // (getSpectrum / getLevels / update) so the visual layer is unchanged.
+/**
+ * @param {{ deviceId?: string, bands?: number }} [opts]
+ * @returns {Promise<import('./types.js').AudioSource>}
+ */
 export async function createWebAudioSource(opts = {}) {
   const bands = opts.bands || CONFIG.bands;
+  /** @type {MediaTrackConstraints} */
   const audioConstraints = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
   if (opts.deviceId) audioConstraints.deviceId = { exact: opts.deviceId };
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
 
-  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const Ctx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
   const ctx = new Ctx();
   if (ctx.state === 'suspended') await ctx.resume();
   const srcNode = ctx.createMediaStreamSource(stream);
@@ -42,7 +51,7 @@ export async function createWebAudioSource(opts = {}) {
   const bytes = new Uint8Array(binCount);
   const spectrum = new Float32Array(bands);
   const third = Math.floor(bands / 3);
-  const avg = (lo, hi) => {
+  const avg = (/** @type {number} */ lo, /** @type {number} */ hi) => {
     let s = 0;
     for (let i = lo; i < hi; i++) s += spectrum[i];
     return clamp(s / (hi - lo), 0, 1);

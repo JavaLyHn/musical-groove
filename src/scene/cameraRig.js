@@ -1,3 +1,4 @@
+// @ts-check
 import { CONFIG } from '../config.js';
 
 // Static telephoto camera. Position is derived from an intuitive set of knobs:
@@ -7,6 +8,10 @@ import { CONFIG } from '../config.js';
 //   targetY   – height of the look target (pin this on the core, not the horizon)
 // The look target is always (0, targetY, 0): the core. Fog near/far track the
 // distance so the depth look holds while tuning.
+/**
+ * @param {any} camera  a THREE.PerspectiveCamera (three ships no type defs)
+ * @param {any} [scene] a THREE.Scene; its fog near/far are re-derived from distance
+ */
 export function createCameraRig(camera, scene) {
   const c = CONFIG.camera;
   const s = {

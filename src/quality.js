@@ -1,12 +1,15 @@
+// @ts-check
 // Tuned to run quietly always-on as a wallpaper. The big GPU costs are render
 // resolution (pixelRatio², multiplied again by bloom's fullscreen passes) and
 // frame rate — so those are capped hard; grid (cube count) is trimmed second.
+/** @type {Record<string, { grid: number, stars: number, bloom: number, pixelRatio: number, fpsCap: number }>} */
 const PRESETS = {
   low:  { grid: 56, stars: 600,  bloom: 0.10, pixelRatio: 1,    fpsCap: 30 },
   mid:  { grid: 72, stars: 900,  bloom: 0.10, pixelRatio: 1.25, fpsCap: 30 },
   high: { grid: 84, stars: 1200, bloom: 0.10, pixelRatio: 1.5,  fpsCap: 60 },
 };
 
+/** @param {typeof import('./config.js').CONFIG} CONFIG */
 export function applyQuality(CONFIG) {
   const p = PRESETS[CONFIG.quality] || PRESETS.mid;
   CONFIG.grid = p.grid;
