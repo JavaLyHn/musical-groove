@@ -17,8 +17,8 @@ export function createStarfield() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const mat = new THREE.PointsMaterial({
-    color: 0x9fb0ff, size: 0.5, sizeAttenuation: true,
-    transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false,
+    color: 0x9fb0ff, size: 1.6, sizeAttenuation: false,
+    transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false,
   });
   const points = new THREE.Points(geo, mat);
   function update(dt) { points.rotation.y += dt * 0.01; }

@@ -15,7 +15,7 @@ export function createPillarField() {
 
   const mat = new THREE.MeshStandardMaterial({
     color: 0x0a0e22, roughness: 0.55, metalness: 0.0,
-    emissive: 0xffffff, emissiveIntensity: 1.25, vertexColors: false,
+    emissive: 0xffffff, emissiveIntensity: 1.05, vertexColors: false,
   });
 
   // Per-instance height attribute + segmented-stripe shader injection.

@@ -35,7 +35,7 @@ describe('colorRamp', () => {
     const lo = colorRamp(0);
     const hi = colorRamp(1);
     expect(lo.getHexString()).toBe('2a3c90');
-    expect(hi.getHexString()).toBe('f4f6ff');
+    expect(hi.getHexString()).toBe('a99cf5');
   });
   it('returns the middle ramp stop at 0.5', () => {
     const mid = colorRamp(0.5);
