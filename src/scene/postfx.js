@@ -15,6 +15,8 @@ const FinalShader = {
     uGrain: { value: CONFIG.post.grain },
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
+    uAccentColor: { value: new THREE.Color(CONFIG.post.accentColor) },
+    uAccentIntensity: { value: CONFIG.post.accentIntensity },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
@@ -24,6 +26,8 @@ const FinalShader = {
     uniform float uGrain;
     uniform float uTime;
     uniform vec2 uResolution;
+    uniform vec3 uAccentColor;
+    uniform float uAccentIntensity;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
@@ -35,6 +39,10 @@ const FinalShader = {
       col.r = texture2D(tDiffuse, vUv - off).r;
       col.g = texture2D(tDiffuse, vUv).g;
       col.b = texture2D(tDiffuse, vUv + off).b;
+      // accent wash: push the bright (bloomed) areas toward one accent hue — a single
+      // knob to swing the whole glow blue<->warm. uAccentIntensity 0 = no change.
+      float _lum = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, col * mix(vec3(1.0), uAccentColor * 1.6, clamp(_lum, 0.0, 1.0)), uAccentIntensity);
       float v = smoothstep(0.9, 0.35, length(d) * uStrength);    // vignette
       col *= mix(0.5, 1.0, v);
       col += (hash(vUv * uResolution + uTime) - 0.5) * uGrain;    // animated film grain
@@ -68,6 +76,10 @@ export function createComposer(renderer, scene, camera) {
     // beat bloom spike: fast attack, smooth decay (堆芯爆闪) — modest so it stays cool
     bloomPulse = Math.max(bloomPulse * (1 - 5 * dt), bass);
     bloom.strength = CONFIG.post.bloomStrength + bloomPulse * CONFIG.post.bloomSpike;
+    bloom.threshold = CONFIG.post.bloomThreshold; // live for ?gui
+    // accent wash, read live so the ?gui panel can swing the glow's hue in real time
+    final.uniforms.uAccentIntensity.value = CONFIG.post.accentIntensity;
+    final.uniforms.uAccentColor.value.set(CONFIG.post.accentColor);
   }
 
   setSize(window.innerWidth, window.innerHeight);
