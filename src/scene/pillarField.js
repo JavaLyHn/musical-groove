@@ -63,7 +63,7 @@ export function createPillarField() {
   const _p = new THREE.Vector3();
   const _s = new THREE.Vector3();
   const _col = new THREE.Color();
-  const denom = f.centerPeak + f.reactive;
+  const denom = f.baseHeight + f.centerPeak + f.reactive;
 
   function writeInstance(i, h) {
     const L = layout[i];
@@ -73,6 +73,7 @@ export function createPillarField() {
     mesh.setMatrixAt(i, _m);
     aHeight.setX(i, h);
     colorRamp(Math.min(h / denom, 1), _col); // write into _col (no per-frame allocation)
+    _col.multiplyScalar(1 - 0.75 * L.ringT);  // brightness sinks toward the edges (white only at center)
     mesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 
@@ -84,6 +85,7 @@ export function createPillarField() {
     _m.compose(_p, quats[i], _s);
     capMesh.setMatrixAt(i, _m);
     colorRamp(Math.min(peak[i] / denom, 1), _col);
+    _col.multiplyScalar(1 - 0.75 * L.ringT);
     capMesh.instanceColor.setXYZ(i, _col.r, _col.g, _col.b);
   }
 

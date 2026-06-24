@@ -11,16 +11,16 @@ export const CONFIG = {
   colors: {
     bg0: '#0B1330',          // deep navy void (outer gradient + fog) — not pure black
     bg1: '#1B2A57',          // navy center-of-gradient glow
-    ramp: ['#2A3C90', '#3F52B0', '#6E78C8', '#8E8AE0', '#A99CF5'], // cool blue -> vivid lavender
+    ramp: ['#0E1538', '#27387E', '#4E6BC0', '#9A8FE6', '#E8ECFF'], // near-black → deep-blue → cyan-blue → lavender → white-hot
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
     deep: '#06080F',         // deep-space color the far cubes fog into (darker than bg)
   },
 
   field: {
-    centerPeak: 2.5,         // small central rise -> no sharp peak
-    falloff: 52.0,           // WIDE falloff -> a broad bright center, not a sharp spike
-    baseHeight: 4.0,         // tall base so columns read as tall columns
+    centerPeak: 4.0,         // central height bump
+    falloff: 40.0,           // broad-ish; the radial weight does the main concentration
+    baseHeight: 2.2,         // low floor so edges stay short and the center stands out
     reactive: 12.0,          // spectrum relief (eased so the center spreads, not spikes)
     jitter: 3.5,             // per-column random static height -> jagged independent-cube skyline
     idleAmp: 1.4,            // idle breathing so columns always visibly move

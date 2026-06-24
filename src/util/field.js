@@ -48,7 +48,11 @@ function idle(phase, t, cfg) {
 // "thousands of independent cubes" skyline instead of a smooth radial shell.
 export function pillarTargetHeight(ringT, r, spectrum, levels, t, cfg, phase = 0, bias = 0) {
   const band = ringBandIndex(ringT, spectrum.length);
-  const base = cfg.baseHeight + radialEnergy(r, cfg.centerPeak, cfg.falloff) + bias * cfg.jitter;
-  const reactive = spectrum[band] * cfg.reactive * (0.4 + 0.6 * bias) * (1 - 0.2 * ringT);
-  return base + reactive + idle(phase, t, cfg);
+  const w = 1 - 0.8 * ringT; // radial weight: center ×1.0 -> edge ×0.2 (energy concentrates at center)
+  const energy =
+    radialEnergy(r, cfg.centerPeak, cfg.falloff) +
+    spectrum[band] * cfg.reactive * (0.4 + 0.6 * bias) + // center=bass (loudest) -> tallest
+    bias * cfg.jitter + // per-column jitter (independent cubes)
+    idle(phase, t, cfg);
+  return cfg.baseHeight + energy * w;
 }
