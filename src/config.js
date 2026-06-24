@@ -17,10 +17,10 @@ export const CONFIG = {
   },
 
   field: {
-    centerPeak: 4.0,         // modest central rise (flat overall, not a mound)
+    centerPeak: 5.0,         // central rise
     falloff: 30.0,           // broad falloff over the big field
-    baseHeight: 3.0,         // TALL base so columns are clearly visible as columns
-    reactive: 11.0,          // big spectrum relief -> obvious up/down column motion
+    baseHeight: 4.0,         // tall base so columns read as tall columns
+    reactive: 15.0,          // bigger spectrum relief -> taller, more obvious motion
     idleAmp: 1.4,            // idle breathing so columns always visibly move
     idleSpeed: 0.55,
     stiffness: 90.0,         // legacy spring (superseded by attack/decay)
@@ -29,7 +29,7 @@ export const CONFIG = {
     decay: 0.90,             // slow fall per 1/60s
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
-    pillarWidth: 2.7,        // chunky columns (clearly distinct, no gaps)
+    pillarWidth: 2.3,        // matches the denser grid (distinct, small gaps)
     capThickness: 0.55,      // peak-hold cap thickness
     capSink: 0.985,          // cap sink per 1/60s (slow descent)
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)
@@ -39,7 +39,7 @@ export const CONFIG = {
   fog: { near: 70, far: 320 },
 
   // beat-triggered radial shockwave rippling outward across the field
-  wave: { speed: 40.0, width: 9.0, amp: 9.0, decay: 1.4 },
+  wave: { speed: 40.0, width: 9.0, amp: 12.0, decay: 1.4 },
 
   core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0 }, // dim + cool
   stars: { count: 1400, radius: 220 },

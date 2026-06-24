@@ -1,7 +1,7 @@
 const PRESETS = {
-  low:  { grid: 44, stars: 700,  bloom: 0.16, pixelRatio: 1 },
-  mid:  { grid: 58, stars: 1000, bloom: 0.16, pixelRatio: 1.5 },
-  high: { grid: 72, stars: 1400, bloom: 0.16, pixelRatio: 2 },
+  low:  { grid: 60, stars: 700,  bloom: 0.16, pixelRatio: 1 },
+  mid:  { grid: 78, stars: 1000, bloom: 0.16, pixelRatio: 1.5 },
+  high: { grid: 96, stars: 1400, bloom: 0.16, pixelRatio: 2 },
 };
 
 export function applyQuality(CONFIG) {
