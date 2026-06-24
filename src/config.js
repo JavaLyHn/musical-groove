@@ -40,7 +40,9 @@ export const CONFIG = {
     damping: 14.0,
     attack: 0.5,             // fast rise (surge up)
     decay: 0.92,             // slow fall per 1/60s (melt down)
-    brightSpan: 0.62,        // a column is fully white-hot at height = baseHeight + reactive*brightSpan
+    heightScale: 1.0,        // master multiplier on the GPU audio elevation (per-band motifs)
+    whiteElev: 10.0,         // elevation at which a column is fully white-hot (brightness normalizer)
+    brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
     brightFloor: 0.15,       // dark-blue floor: below this (after pow) a column stays dark, not lit ->
                              //   dark field + hot core contrast holds even at the loudest moment
@@ -59,9 +61,10 @@ export const CONFIG = {
   // tuning; these are the static fallback.
   fog: { near: 175, far: 330 },
 
-  // beat-triggered ripple: a height shockwave AND a brightness ring expanding
-  // from the core outward, sweeping the whole field in ~0.6-0.7s.
-  wave: { speed: 85.0, width: 10.0, amp: 12.0, decay: 1.0, bright: 0.5 },
+  // beat ripple in the GPU shader (field world coords; the cap spans ~±132):
+  // a ring expanding from the core, sweeping the field in ~0.6-0.7s. width = the
+  // gaussian falloff scale of the ring; decay = exp(-age*decay) brightness fade.
+  wave: { speed: 210.0, width: 22.0, decay: 1.2 },
 
   // floating embers: additive white sparks that burst from the core on strong
   // beats and slowly drift up + fade — the "alive, has energy" top layer.

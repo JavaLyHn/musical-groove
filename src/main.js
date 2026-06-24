@@ -34,7 +34,6 @@ const shaper = createAudioShaper(CONFIG.bands);
 const beatDetector = createBeatDetector();
 const field = createPillarField();
 scene.add(field.mesh);
-scene.add(field.capMesh);
 
 const core = createCore();
 scene.add(core.group);
