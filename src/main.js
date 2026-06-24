@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRenderer, createCamera, createScene } from './scene/sceneSetup.js';
 import { createPillarField } from './scene/pillarField.js';
+import { createCore } from './scene/core.js';
 import { createSimulatedAudioSource } from './audioSource.js';
 
 const canvas = document.getElementById('app');
@@ -12,11 +13,16 @@ const audio = createSimulatedAudioSource();
 const field = createPillarField();
 scene.add(field.mesh);
 
+const core = createCore();
+scene.add(core.group);
+
 const clock = new THREE.Clock();
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   audio.update(dt);
-  field.update(audio.getSpectrum(), audio.getLevels(), dt);
+  const levels = audio.getLevels();
+  field.update(audio.getSpectrum(), levels, dt);
+  core.update(levels.bass, dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
