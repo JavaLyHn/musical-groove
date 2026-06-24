@@ -173,6 +173,7 @@ export function createPillarField() {
   const rippleTrigger = createTrigger(CONFIG.ripple);
   let silentFor = 0;  // seconds the music has been below the idle-silence threshold
   let idleMix = 1;    // 0 = music drives everything, 1 = autonomous standby wave
+  let idleRippleT = 0;// timer for the standby ripple sweeps
 
   let levelSmooth = 0;
   function update(spectrum, levels, level, beat, timbre, dt, onset = 0) {
@@ -220,6 +221,18 @@ export function createPillarField() {
     const idleTarget = silentFor > m.idleDebounce ? 1 : 0;
     const idleStep = dt / Math.max(0.001, m.idleTransition);
     idleMix += Math.max(-idleStep, Math.min(idleStep, idleTarget - idleMix));
+
+    // standby signature: once idle, a gentle ripple sweeps across the dark field on a
+    // timer — the same "涟漪一扫而过" motion, now the centerpiece of the standby state.
+    if (idleMix > 0.35) {
+      idleRippleT += dt;
+      if (idleRippleT >= m.idleRippleEvery) {
+        idleRippleT = 0;
+        spawnRipple(t, m.idleRippleStrength * idleMix, 0, 0, 0);
+      }
+    } else {
+      idleRippleT = m.idleRippleEvery - 0.4; // first sweep ~0.4s after going idle
+    }
 
     // beats -> sparse hard accents: a few random columns spark to max + flash
     if (beat.kick > 0) spawnAccent(t, Math.min(1.0, beat.kick), Math.random() * 100);
