@@ -28,12 +28,21 @@ function injectTheme() {
     }
     .lil-gui.lyhn-gui{
       position:fixed !important; top:60px !important; left:18px !important; right:auto !important; z-index:11;
+      max-height:calc(100vh - 78px) !important;
+      display:flex !important; flex-direction:column;
       background:rgba(12,18,42,0.20) !important;
       -webkit-backdrop-filter:blur(9px) saturate(1.4); backdrop-filter:blur(9px) saturate(1.4);
       border:1px solid rgba(150,175,240,0.20); border-radius:14px;
       box-shadow:0 14px 50px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06);
-      overflow:hidden;
+      overflow:hidden; /* clip to the rounded corners; the inner list scrolls */
     }
+    /* pinned title + reset, scrollable middle so the panel never gets cut off */
+    .lil-gui.lyhn-gui.root > .title{ flex:0 0 auto; }
+    .lil-gui.lyhn-gui.root > .children{ flex:1 1 auto; overflow-y:auto; overflow-x:hidden; }
+    .lil-gui.lyhn-gui .lyhn-reset{ flex:0 0 auto; }
+    .lil-gui.lyhn-gui.root > .children::-webkit-scrollbar{ width:6px; }
+    .lil-gui.lyhn-gui.root > .children::-webkit-scrollbar-thumb{ background:rgba(120,170,235,0.32); border-radius:3px; }
+    .lil-gui.lyhn-gui.root > .children::-webkit-scrollbar-track{ background:transparent; }
     .lil-gui.lyhn-gui .children,
     .lil-gui.lyhn-gui .lil-gui{ background:transparent !important; }
     /* root title — clean CJK-capable face with the same cool→lavender gradient fill */
