@@ -154,6 +154,48 @@ export function createNowPlayingBridge(opts = {}) {
   return { start, stop, sse };
 }
 
+// --- lyrics proxy: lrclib (good Western coverage) then NetEase (good Chinese coverage).
+// Done server-side so it bypasses CORS (NetEase blocks browser fetches). Cached per song.
+const NE_HEADERS = { Referer: 'https://music.163.com', 'User-Agent': 'Mozilla/5.0' };
+const lyricsCache = new Map(); // "title|artist" -> syncedLyrics string | null
+
+/** @param {string} url @param {{ headers?: any, timeout?: number }} [opts] */
+async function fetchJSON(url, opts = {}) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), opts.timeout || 6000);
+  try {
+    const r = await fetch(url, { headers: opts.headers, signal: ctrl.signal });
+    return r.ok ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(to); }
+}
+
+/** @param {any} lrc */
+const isSynced = (lrc) => typeof lrc === 'string' && /\[\d+:\d/.test(lrc);
+
+/** @param {{ title: string, artist: string, album: string, duration: string|number }} q */
+async function fetchLyrics(q) {
+  const key = (q.title || '') + '|' + (q.artist || '');
+  if (lyricsCache.has(key)) return lyricsCache.get(key);
+  let synced = null;
+  // 1) lrclib
+  const params = new URLSearchParams({ artist_name: q.artist || '', track_name: q.title || '', album_name: q.album || '', duration: String(q.duration || 0) });
+  const d = await fetchJSON('https://lrclib.net/api/get?' + params);
+  if (d && isSynced(d.syncedLyrics) && !d.instrumental) synced = d.syncedLyrics;
+  // 2) NetEase fallback (search -> top hit -> lyric)
+  if (!synced && q.title) {
+    const s = new URLSearchParams({ s: (q.title + ' ' + (q.artist || '')).trim(), type: '1', limit: '5' });
+    const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
+    const songs = sr && sr.result && sr.result.songs;
+    if (songs && songs.length) {
+      const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${songs[0].id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
+      const lrc = ly && ly.lrc && ly.lrc.lyric;
+      if (isSynced(lrc)) synced = lrc;
+    }
+  }
+  lyricsCache.set(key, synced);
+  return synced;
+}
+
 // Vite dev-server plugin: spawn the bridge and serve the stream at /__nowplaying,
 // on whatever port Vite runs (so it follows the user's --port 5188). Dev only.
 export function nowPlayingVitePlugin() {
@@ -168,6 +210,20 @@ export function nowPlayingVitePlugin() {
       const ok = bridge.start();
       server.config.logger.info('[now-playing] ' + (ok ? 'reading system Now Playing → /__nowplaying' : 'disabled'));
       server.middlewares.use('/__nowplaying', (req, res) => bridge?.sse(req, res));
+      // server-side lyrics proxy (lrclib + NetEase) so the page can fetch same-origin
+      server.middlewares.use('/__lyrics', async (req, res) => {
+        try {
+          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
+          const synced = await fetchLyrics({
+            title: u.searchParams.get('title') || '',
+            artist: u.searchParams.get('artist') || '',
+            album: u.searchParams.get('album') || '',
+            duration: u.searchParams.get('duration') || '',
+          });
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ syncedLyrics: synced }));
+        } catch { res.statusCode = 500; res.end('{}'); }
+      });
       const close = () => { bridge?.stop(); bridge = null; };
       server.httpServer?.once('close', close);
       process.once('SIGINT', close);

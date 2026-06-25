@@ -81,17 +81,19 @@ export function createLyrics() {
     curKey = key;
     hide();
     const id = ++fetchId;
-    const url = 'https://lrclib.net/api/get?' + new URLSearchParams({
-      artist_name: t.artist || '',
-      track_name: t.title || '',
-      album_name: t.album || '',
+    // same-origin proxy (bridge does lrclib + NetEase server-side, no CORS); it returns
+    // already-filtered synced LRC or null.
+    const url = '/__lyrics?' + new URLSearchParams({
+      title: t.title || '',
+      artist: t.artist || '',
+      album: t.album || '',
       duration: String(Math.round(t.duration || 0)),
     });
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (id !== fetchId) return; // a newer track superseded this fetch
-        lines = (d && d.syncedLyrics && !d.instrumental) ? parseLRC(d.syncedLyrics) : [];
+        lines = (d && d.syncedLyrics) ? parseLRC(d.syncedLyrics) : [];
         lineIdx = -1;
       })
       .catch(() => { if (id === fetchId) { lines = []; lineIdx = -1; } });
