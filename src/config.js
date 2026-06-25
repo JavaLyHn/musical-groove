@@ -119,7 +119,7 @@ export const CONFIG = {
   // beat ripple in the GPU shader (field world coords; the cap spans ~±132):
   // a ring expanding from the core, sweeping the field in ~0.6-0.7s. width = the
   // gaussian falloff scale of the ring; decay = exp(-age*decay) brightness fade.
-  wave: { speed: 320.0, width: 30.0, decay: 1.2 },
+  wave: { speed: 320.0, idleSpeed: 130.0, width: 30.0, decay: 1.2 }, // idleSpeed = slower standby-ripple spread
 
   // floating embers: additive white sparks that burst from the core on strong
   // beats and slowly drift up + fade — the "alive, has energy" top layer.

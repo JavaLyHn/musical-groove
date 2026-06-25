@@ -75,7 +75,7 @@ export function createPillarField() {
       uSubBass: { value: 0 }, uBass: { value: 0 }, uLowMid: { value: 0 }, uMid: { value: 0 },
       uHighMid: { value: 0 }, uPresence: { value: 0 }, uBrilliance: { value: 0 }, uAir: { value: 0 },
       uRipplePos: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector2()) },
-      uRippleTST: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector3()) },
+      uRippleTST: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector4()) }, // x time, y strength, z type, w speed
       uRippleSpeed: { value: w.speed }, uRippleWidth: { value: w.width }, uRippleFade: { value: w.decay },
       uWhiteElev: { value: f.whiteElev }, uBrightFloor: { value: f.brightFloor }, uRadialDim: { value: f.radialDim },
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
@@ -129,16 +129,17 @@ export function createPillarField() {
 
   // ---- per-frame CPU state: 8 per-band envelopes + ripple ring buffer ----
   const bandEnv = new Float32Array(8);
-  const ripples = Array.from({ length: RIPPLES }, () => ({ pos: new THREE.Vector2(), time: -1e3, strength: 0, type: 0 }));
+  const ripples = Array.from({ length: RIPPLES }, () => ({ pos: new THREE.Vector2(), time: -1e3, strength: 0, type: 0, speed: 0 }));
   let rippleIdx = 0;
-  const RIPPLE_MAX_AGE = 1.6;
+  const RIPPLE_REACH = 300; // cull a ripple once it has expanded past the field edge (distance-based, so any speed completes its sweep)
 
-  function spawnRipple(t, strength, type, x = 0, z = 0) {
+  function spawnRipple(t, strength, type, x = 0, z = 0, speed = CONFIG.wave.speed) {
     const r = ripples[rippleIdx];
     r.pos.set(x, z);
     r.time = t;
     r.strength = strength;
     r.type = type;
+    r.speed = speed;
     rippleIdx = (rippleIdx + 1) % RIPPLES;
   }
 
@@ -213,7 +214,7 @@ export function createPillarField() {
       }
     }
     for (let i = 0; i < RIPPLES; i++) {
-      if (ripples[i].strength > 0 && t - ripples[i].time > RIPPLE_MAX_AGE) ripples[i].strength = 0;
+      if (ripples[i].strength > 0 && (t - ripples[i].time) * ripples[i].speed > RIPPLE_REACH) ripples[i].strength = 0;
     }
 
     // idle standby: fade the autonomous wave IN after sustained silence (debounce), OUT
@@ -229,7 +230,7 @@ export function createPillarField() {
       idleRippleT += dt;
       if (idleRippleT >= m.idleRippleEvery) {
         idleRippleT = 0;
-        spawnRipple(t, m.idleRippleStrength * idleMix, 0, 0, 0);
+        spawnRipple(t, m.idleRippleStrength * idleMix, 0, 0, 0, CONFIG.wave.idleSpeed);
       }
     } else {
       idleRippleT = m.idleRippleEvery - 0.4; // first sweep ~0.4s after going idle
@@ -257,7 +258,7 @@ export function createPillarField() {
     U.uHighMid.value = bandEnv[4]; U.uPresence.value = bandEnv[5]; U.uBrilliance.value = bandEnv[6]; U.uAir.value = bandEnv[7];
     for (let i = 0; i < RIPPLES; i++) {
       U.uRipplePos.value[i].copy(ripples[i].pos);
-      U.uRippleTST.value[i].set(ripples[i].time, ripples[i].strength, ripples[i].type);
+      U.uRippleTST.value[i].set(ripples[i].time, ripples[i].strength, ripples[i].type, ripples[i].speed);
     }
     for (let i = 0; i < ACCENTS; i++) {
       U.uAccentTSt.value[i].set(accents[i].time, accents[i].strength, accents[i].seed);
@@ -312,7 +313,7 @@ uniform float uWaveAmp, uWaveFreq, uWaveSpeed, uWaveRot;
 uniform vec3 uAccentTSt[${ACCENTS}];
 uniform float uAccentHeight, uAccentDecay, uAccentThresh;
 uniform vec2 uRipplePos[${RIPPLES}];
-uniform vec3 uRippleTST[${RIPPLES}];
+uniform vec4 uRippleTST[${RIPPLES}];
 uniform float uRippleSpeed, uRippleWidth, uRippleFade;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW, vAccent;
 // read band b (0..7) from the history texture at time-row coord y (0..1)
@@ -370,14 +371,14 @@ elev += _wave * uWaveAmp * (0.4 + 1.4 * uMid);
 // beat ripples expanding from the core (and offset hat pops)
 float rN = 0.0, rW = 0.0;
 for (int i = 0; i < ${RIPPLES}; i++) {
-  vec3 tst = uRippleTST[i];
+  vec4 tst = uRippleTST[i];
   if (tst.y <= 0.0) continue;
   float d = length(aField - uRipplePos[i]);
   float age = uTime - tst.x;
-  float radius = age * uRippleSpeed;
+  float radius = age * tst.w;                          // per-ripple speed (standby rings spread slower)
   float dd = d - radius;
   float wv = exp(-dd * dd / (uRippleWidth * uRippleWidth));
-  float fade = exp(-age * uRippleFade);
+  float fade = exp(-age * uRippleFade * tst.w / uRippleSpeed); // fade over DISTANCE, so slow rings still cross the field
   float pulse = wv * fade * tst.y;
   bool white = tst.z > 0.5;
   elev += pulse * (white ? 2.0 : 5.0);

@@ -103,6 +103,7 @@ export function createGui({ rig, renderer }) {
   fi.add(CONFIG.motion, 'idleHeight', 0, 18, 0.5).name('待机柱林高度');
   fi.add(CONFIG.motion, 'idleRippleEvery', 0.8, 8, 0.1).name('待机涟漪间隔 (s)');
   fi.add(CONFIG.motion, 'idleRippleStrength', 0, 2, 0.05).name('待机涟漪强度');
+  fi.add(CONFIG.wave, 'idleSpeed', 30, 400, 5).name('待机涟漪速度 (小=慢)');
 
   const fmo = gui.addFolder('运动 Motion');
   fmo.add(CONFIG.motion, 'radialDelay', 0, 70, 1).name('径向延迟 (波速)');
