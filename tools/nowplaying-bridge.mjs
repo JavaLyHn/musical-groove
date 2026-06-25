@@ -58,6 +58,17 @@ function sameTrack(a, b) {
   return a.title === b.title && a.artist === b.artist && a.playing === b.playing && a.artwork === b.artwork;
 }
 
+// True when the playback position jumped (a user scrub), as opposed to drifting forward
+// on its own. Compares the incoming elapsed against where `prev` would have advanced to by
+// the new timestamp. Without this, a seek leaves title/artist/playing/artwork unchanged so
+// sameTrack() suppresses the push and the page's lyrics never follow the scrub.
+function seeked(prev, next) {
+  if (!prev || !next) return false;
+  const dt = (next.posAt - prev.posAt) / 1000;
+  const expected = prev.elapsed + (prev.playing ? dt * (prev.rate || 1) : 0);
+  return Math.abs((next.elapsed || 0) - expected) > 1.0;
+}
+
 /** @param {{ log?: (m: string) => void }} [opts] */
 export function createNowPlayingBridge(opts = {}) {
   const log = opts.log || (() => {});
@@ -81,9 +92,10 @@ export function createNowPlayingBridge(opts = {}) {
   function setCurrent(next, fromStreamBaseline = false) {
     // Ignore the stream's empty baseline right after start (the `get` seed wins).
     if (next === null && fromStreamBaseline && Date.now() - startedAt < EMPTY_GRACE_MS) return;
-    if (sameTrack(current, next)) { current = next; return; }
+    // Push on a visual change OR a position jump (scrub) — so lyrics resync to the new spot.
+    const changed = !sameTrack(current, next) || seeked(current, next);
     current = next;
-    broadcast();
+    if (changed) broadcast();
   }
 
   function seed() {
@@ -212,23 +224,42 @@ async function neLyric(query, ct, artist) {
   return null;
 }
 
+// NetEase, trying a few query forms (cleaned+artist, cleaned alone, raw+artist).
+async function neLyrics(title, ct, artist) {
+  for (const query of [...new Set([(ct + ' ' + artist).trim(), ct, (title + ' ' + artist).trim()].filter(Boolean))]) {
+    const r = await neLyric(query, ct, artist);
+    if (r) return r;
+  }
+  return null;
+}
+
+// lrclib, trying the full title then the cleaned title.
+async function lrclibLyric(title, ct, album, artist, duration) {
+  for (const tt of [...new Set([title, ct].filter(Boolean))]) {
+    const params = new URLSearchParams({ artist_name: artist, track_name: tt, album_name: album || '', duration: String(duration || 0) });
+    const d = await fetchJSON('https://lrclib.net/api/get?' + params);
+    if (d && isSynced(d.syncedLyrics) && !d.instrumental) return d.syncedLyrics;
+  }
+  return null;
+}
+
+const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
+
 async function fetchLyrics(q) {
   const key = (q.title || '') + '|' + (q.artist || '');
   if (lyricsCache.has(key)) return lyricsCache.get(key);
   const title = q.title || '', artist = q.artist || '', ct = cleanTitle(title) || title;
+  // Source order by script: for Chinese songs NetEase (mainland, 简体) is authoritative and
+  // matches what 汽水 shows, whereas lrclib's community LRCs are frequently 繁体 — which is
+  // the "把简体变繁体" bug. So CJK -> NetEase first; Western -> lrclib first. The other source
+  // is always the fallback, so coverage is the union of both, just prioritized correctly.
   let synced = null;
-  // 1) lrclib (full title, then cleaned)
-  for (const tt of [...new Set([title, ct].filter(Boolean))]) {
-    const params = new URLSearchParams({ artist_name: artist, track_name: tt, album_name: q.album || '', duration: String(q.duration || 0) });
-    const d = await fetchJSON('https://lrclib.net/api/get?' + params);
-    if (d && isSynced(d.syncedLyrics) && !d.instrumental) { synced = d.syncedLyrics; break; }
-  }
-  // 2) NetEase fallback — cleaned title (+artist), then cleaned alone, then the raw title
-  if (!synced && title) {
-    for (const query of [...new Set([(ct + ' ' + artist).trim(), ct, (title + ' ' + artist).trim()].filter(Boolean))]) {
-      synced = await neLyric(query, ct, artist);
-      if (synced) break;
-    }
+  if (hasCJK(title) || hasCJK(artist)) {
+    synced = await neLyrics(title, ct, artist);
+    if (!synced) synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
+  } else {
+    synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
+    if (!synced && title) synced = await neLyrics(title, ct, artist);
   }
   lyricsCache.set(key, synced);
   return synced;

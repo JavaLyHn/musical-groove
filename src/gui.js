@@ -87,6 +87,11 @@ export function createGui({ rig, renderer }) {
 
   const fly = gui.addFolder('歌词 Lyrics');
   fly.add(CONFIG.lyrics, 'offset', -0.5, 2.5, 0.05).name('提前量 (s, 大=更早)');
+  fly.add(CONFIG.lyrics, 'fontSize', 18, 64, 1).name('字号 (px)');
+  fly.add(CONFIG.lyrics, 'bottom', 4, 45, 1).name('高度 (距底 %)');
+  fly.add(CONFIG.lyrics, 'glow', 0, 2, 0.05).name('辉光 (0=无)');
+  fly.add(CONFIG.lyrics, 'pulse', 0, 2.5, 0.05).name('律动 (随乐缩放)');
+  fly.add(CONFIG.lyrics, 'showNext').name('显示下一句');
 
   const fr = gui.addFolder('涟漪 Ripple');
   fr.add(CONFIG.ripple, 'sensitivity', 0, 0.5, 0.005).name('灵敏度 (低=易触发)');

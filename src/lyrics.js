@@ -66,6 +66,27 @@ export function createLyrics() {
   let lineIdx = -1;
   let fetchId = 0;
   let curKey = '';
+  let lastPos = 0; // last sane playback position, so a pause that mis-reports elapsed≈0
+                   // freezes the lyric here instead of snapping back to the first line.
+  let sFont = -1, sBottom = -1, sGlow = -1; // last-applied style cache (avoid per-frame writes)
+
+  // Apply the live-tunable look (?gui 歌词 folder). Cached so each property only writes to
+  // the DOM when it actually changes — no per-frame layout thrash.
+  function applyStyle() {
+    const L = CONFIG.lyrics;
+    if (L.fontSize !== sFont) { sFont = L.fontSize; cur.style.fontSize = sFont + 'px'; }
+    if (L.bottom !== sBottom) { sBottom = L.bottom; wrap.style.bottom = sBottom + '%'; }
+    if (L.glow !== sGlow) {
+      const g = sGlow = L.glow; // scale the halo; g=0 -> no glow, 1 -> the original look
+      txt.style.textShadow =
+        `0 0 ${(17 * g).toFixed(1)}px rgba(95,208,224,${(0.5 * g).toFixed(3)}),` +
+        `0 0 ${(36 * g).toFixed(1)}px rgba(120,150,240,${(0.28 * g).toFixed(3)}),` +
+        `0 2px 10px rgba(6,10,28,.55)`;
+    }
+    // next line visibility responds live to the toggle
+    if (L.showNext === false) nxt.classList.remove('show');
+    else if (lineIdx >= 0 && nxt.textContent) nxt.classList.add('show');
+  }
 
   function hide() {
     lines = []; lineIdx = -1;
@@ -74,11 +95,12 @@ export function createLyrics() {
 
   /** @param {Track|null} t */
   function setTrack(t) {
-    if (!t || !t.title) { track = null; curKey = ''; hide(); return; }
+    if (!t || !t.title) { track = null; curKey = ''; lastPos = 0; hide(); return; }
     track = t; // keep the freshest playback timing every message
     const key = t.title + '|' + t.artist;
     if (key === curKey) return; // same song -> just a timing refresh
     curKey = key;
+    lastPos = 0; // new song starts from the top
     hide();
     const id = ++fetchId;
     // same-origin proxy (bridge does lrclib + NetEase server-side, no CORS); it returns
@@ -101,13 +123,21 @@ export function createLyrics() {
 
   function position() {
     if (!track) return 0;
-    const base = track.elapsed || 0;
-    if (!track.playing) return base;
-    return base + (Date.now() - (track.posAt || Date.now())) / 1000 * (track.rate || 1);
+    if (track.playing) {
+      lastPos = (track.elapsed || 0) + (Date.now() - (track.posAt || Date.now())) / 1000 * (track.rate || 1);
+      return lastPos;
+    }
+    // Paused: trust the reported elapsed only when it's a real position (a genuine pause
+    // spot or a scrub). Some players report elapsed≈0 on pause — ignore that and hold
+    // where we were, so the line doesn't jump back to the top on every pause.
+    const e = track.elapsed || 0;
+    if (e > 0.5 || lastPos < 1) lastPos = e;
+    return lastPos;
   }
 
   /** @param {number} level @param {number} onset @param {number} _dt */
   function update(level, onset, _dt) {
+    applyStyle();
     if (!lines.length) {
       if (lineIdx !== -1) { lineIdx = -1; cur.classList.remove('show'); nxt.classList.remove('show'); }
       return;
@@ -123,13 +153,13 @@ export function createLyrics() {
       nxt.textContent = (i + 1 < lines.length) ? lines[i + 1].text : '';
       cur.classList.remove('show'); void cur.offsetWidth; // re-trigger entrance
       cur.classList.toggle('show', !!line);
-      nxt.classList.toggle('show', !!line && !!nxt.textContent);
+      nxt.classList.toggle('show', !!line && !!nxt.textContent && CONFIG.lyrics.showNext !== false);
     }
     // 动感 via a GPU-composited scale ONLY (no per-frame filter/shadow -> no re-raster,
     // no jank): a gentle breathe with the level + a kick on each onset. Glow is static CSS.
     if (lineIdx >= 0) {
       const lv = Math.min(level, 1);
-      const s = 1 + lv * 0.045 + Math.min(onset * 1.6, 0.07);
+      const s = 1 + (lv * 0.045 + Math.min(onset * 1.6, 0.07)) * CONFIG.lyrics.pulse;
       txt.style.transform = `scale(${s.toFixed(3)})`;
     }
   }
