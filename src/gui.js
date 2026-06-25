@@ -71,7 +71,24 @@ function injectTheme() {
       border-radius:8px; transition:background .2s ease, transform .1s ease;
     }
     .lil-gui.lyhn-gui .lyhn-reset:hover{ background:rgba(95,208,224,0.24); }
-    .lil-gui.lyhn-gui .lyhn-reset:active{ transform:scale(0.98); }`;
+    .lil-gui.lyhn-gui .lyhn-reset:active{ transform:scale(0.98); }
+    /* version presets — pinned under the title so the saved-version controls never scroll away */
+    .lil-gui.lyhn-gui .lyhn-presets{ flex:0 0 auto; display:flex; flex-direction:column; gap:6px;
+      padding:9px 10px; border-bottom:1px solid rgba(150,175,240,0.16); background:rgba(95,208,224,0.04); }
+    .lil-gui.lyhn-gui .lyhn-presets .row{ display:flex; gap:6px; align-items:center; }
+    .lil-gui.lyhn-gui .lyhn-presets select,
+    .lil-gui.lyhn-gui .lyhn-presets input{ flex:1 1 auto; min-width:0; height:25px; box-sizing:border-box;
+      font:600 11px/1 inherit; color:#eaf0ff; padding:0 8px; border-radius:6px;
+      background:rgba(120,170,235,0.12); border:1px solid rgba(150,175,240,0.22); outline:none; }
+    .lil-gui.lyhn-gui .lyhn-presets input::placeholder{ color:#7e8bc0; }
+    .lil-gui.lyhn-gui .lyhn-presets select option{ color:#10162e; }
+    .lil-gui.lyhn-gui .lyhn-presets button{ flex:0 0 auto; height:25px; padding:0 11px; cursor:pointer;
+      font:600 11px/1 inherit; letter-spacing:.06em; color:#bfeaf2; border-radius:6px;
+      background:rgba(95,208,224,0.12); border:1px solid rgba(95,208,224,0.30); transition:background .2s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets button:hover{ background:rgba(95,208,224,0.24); }
+    .lil-gui.lyhn-gui .lyhn-presets button.danger{ color:#f2c0cf; background:rgba(224,95,128,0.10); border-color:rgba(224,95,128,0.32); }
+    .lil-gui.lyhn-gui .lyhn-presets button.danger:hover{ background:rgba(224,95,128,0.22); }
+    .lil-gui.lyhn-gui .lyhn-presets .msg{ min-height:12px; font-size:10px; letter-spacing:.04em; color:#86e6f4; }`;
   document.head.appendChild(s);
 }
 
@@ -135,5 +152,94 @@ export function createGui({ rig, renderer }) {
   resetBtn.addEventListener('click', () => gui.reset());
   gui.domElement.appendChild(resetBtn);
 
+  setupPresets(gui);
   return gui;
+}
+
+// VERSION PRESETS: save the whole panel state under a name and recall it later. A preset
+// is just `gui.save()` (every controller's value, by folder), stored in localStorage — so
+// it survives reloads and the wallpaper keeps your tuned look. The preset bar is custom
+// HTML (not a GUI folder) so it's excluded from the snapshot automatically.
+const PRESETS_KEY = 'lyhn-presets';      // { [name]: gui.save() }
+const LAST_KEY = 'lyhn-preset-last';     // name of the version to auto-restore on launch
+
+/** @param {import('lil-gui').GUI} gui */
+function setupPresets(gui) {
+  /** @type {Record<string, any>} */
+  let presets = {};
+  try { presets = JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}') || {}; } catch { presets = {}; }
+  const persist = () => { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch { /* storage off */ } };
+  /** @param {string|null} n */
+  const remember = (n) => { try { n ? localStorage.setItem(LAST_KEY, n) : localStorage.removeItem(LAST_KEY); } catch { /* */ } };
+
+  const bar = document.createElement('div');
+  bar.className = 'lyhn-presets';
+  bar.innerHTML =
+    '<div class="row"><select class="sel" title="切换已保存的版本"></select></div>' +
+    '<div class="row"><input class="name" type="text" placeholder="版本名称（留空=覆盖所选）" maxlength="24"/>' +
+    '<button class="save">保存</button><button class="del danger" title="删除所选版本">删除</button></div>' +
+    '<div class="msg"></div>';
+  const sel = /** @type {HTMLSelectElement} */ (bar.querySelector('.sel'));
+  const nameInput = /** @type {HTMLInputElement} */ (bar.querySelector('.name'));
+  const saveBtn = /** @type {HTMLButtonElement} */ (bar.querySelector('.save'));
+  const delBtn = /** @type {HTMLButtonElement} */ (bar.querySelector('.del'));
+  const msgEl = /** @type {HTMLDivElement} */ (bar.querySelector('.msg'));
+
+  let msgTimer = 0;
+  /** @param {string} t */
+  const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2000); };
+
+  function refreshSelect() {
+    const names = Object.keys(presets);
+    const keep = sel.value;
+    sel.innerHTML = '';
+    const ph = document.createElement('option');
+    ph.value = ''; ph.textContent = names.length ? '— 选择版本 —' : '— 暂无保存的版本 —';
+    sel.appendChild(ph);
+    for (const n of names) {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n; sel.appendChild(o);
+    }
+    if (keep && presets[keep]) sel.value = keep;
+  }
+
+  function doSave() {
+    let name = nameInput.value.trim();
+    if (!name) name = sel.value;                 // empty name -> overwrite the selected version
+    if (!name) { let i = 1; while (presets['版本 ' + i]) i++; name = '版本 ' + i; } // else auto-number
+    presets[name] = gui.save();                  // snapshot every controller value
+    persist(); refreshSelect();
+    sel.value = name; nameInput.value = ''; remember(name);
+    flash('已保存「' + name + '」');
+  }
+
+  function doDelete() {
+    const n = sel.value;
+    if (!n) { flash('请先选择一个版本'); return; }
+    delete presets[n]; persist(); refreshSelect();
+    if (localStorage.getItem(LAST_KEY) === n) remember(null);
+    flash('已删除「' + n + '」');
+  }
+
+  /** @param {string} n */
+  function doLoad(n) {
+    if (!n || !presets[n]) return;
+    try { gui.load(presets[n]); } catch { /* malformed preset */ }
+    remember(n);
+    flash('已载入「' + n + '」');
+  }
+
+  saveBtn.addEventListener('click', doSave);
+  delBtn.addEventListener('click', doDelete);
+  sel.addEventListener('change', () => doLoad(sel.value));
+  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
+
+  refreshSelect();
+  // pin the bar directly under the title, above the scrolling folder list
+  const title = gui.domElement.querySelector(':scope > .title');
+  if (title) title.insertAdjacentElement('afterend', bar); else gui.domElement.appendChild(bar);
+
+  // auto-restore the last-used version so the wallpaper reopens with your saved look
+  const last = localStorage.getItem(LAST_KEY);
+  if (last && presets[last]) { sel.value = last; try { gui.load(presets[last]); } catch { /* */ } }
 }
