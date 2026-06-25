@@ -1,9 +1,35 @@
+/*!
+ * 声音星球 — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
+ * The "LyHN" watermark below is composited INTO the final WebGL image (not a DOM overlay).
+ * It is part of the render and may not be removed or disabled. See LICENSE.
+ */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { CONFIG } from '../config.js';
+
+// Author watermark baked into the final pass. Drawing it as a texture here (rather than a
+// removable DOM node) ties the mark to the render pipeline itself.
+function makeMarkTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 96;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  g.font = "600 58px 'Snell Roundhand','Zapfino','Apple Chancery',cursive";
+  g.textAlign = 'right';
+  g.textBaseline = 'alphabetic';
+  g.shadowColor = 'rgba(95,208,224,0.9)';
+  g.shadowBlur = 9;
+  g.fillStyle = 'rgba(196,230,242,1)';
+  g.fillText('LyHN', c.width - 12, 66);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 // Final pass: radial chromatic aberration (edges) + vignette + animated film
 // grain + dithering. The dither breaks banding in the dark navy gradient.
@@ -17,6 +43,9 @@ const FinalShader = {
     uResolution: { value: new THREE.Vector2(1, 1) },
     uAccentColor: { value: new THREE.Color(CONFIG.post.accentColor) },
     uAccentIntensity: { value: CONFIG.post.accentIntensity },
+    uMark: { value: makeMarkTexture() },                       // author watermark texture
+    uMarkRect: { value: new THREE.Vector4(0.8, 0.02, 0.18, 0.07) }, // x,y,w,h in UV (bottom-right)
+    uMarkAmt: { value: 0.22 },                                 // subtle additive glow
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
@@ -28,6 +57,9 @@ const FinalShader = {
     uniform vec2 uResolution;
     uniform vec3 uAccentColor;
     uniform float uAccentIntensity;
+    uniform sampler2D uMark;
+    uniform vec4 uMarkRect;
+    uniform float uMarkAmt;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
@@ -47,6 +79,12 @@ const FinalShader = {
       col *= mix(0.5, 1.0, v);
       col += (hash(vUv * uResolution + uTime) - 0.5) * uGrain;    // animated film grain
       col += (hash(vUv * uResolution * 0.5 + 19.0) - 0.5) / 255.0; // dither (anti-band)
+      // author watermark — composited into the image itself (not a removable DOM node)
+      vec2 mk = (vUv - uMarkRect.xy) / uMarkRect.zw;
+      if (mk.x >= 0.0 && mk.x <= 1.0 && mk.y >= 0.0 && mk.y <= 1.0) {
+        vec4 wm = texture2D(uMark, vec2(mk.x, 1.0 - mk.y));
+        col += wm.rgb * wm.a * uMarkAmt;
+      }
       gl_FragColor = vec4(col, 1.0);
     }`,
 };
@@ -64,10 +102,15 @@ export function createComposer(renderer, scene, camera) {
   const final = new ShaderPass(FinalShader);
   composer.addPass(final);
 
+  // keep the watermark a fixed pixel size + aspect (matching the 256x96 texture) in the
+  // bottom-right corner, regardless of viewport size.
+  const MARK_W = 132, MARK_H = MARK_W * (96 / 256), MARK_MARGIN = 16;
   function setSize(w, h) {
     composer.setSize(w, h);
     bloom.setSize(w, h);
     final.uniforms.uResolution.value.set(w, h);
+    const uw = MARK_W / w, uh = MARK_H / h;
+    final.uniforms.uMarkRect.value.set(1 - uw - MARK_MARGIN / w, MARK_MARGIN / h, uw, uh);
   }
 
   let bloomPulse = 0;

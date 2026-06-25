@@ -1,3 +1,8 @@
+/*!
+ * 声音星球 (Sound Planet) — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
+ * Proprietary. The "LyHN" signature (signature.js) and the in-canvas watermark (postfx.js)
+ * are the author's attribution marks and must not be removed or disabled. See LICENSE.
+ */
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { applyQuality } from './quality.js';
