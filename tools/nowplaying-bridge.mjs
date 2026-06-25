@@ -159,7 +159,6 @@ export function createNowPlayingBridge(opts = {}) {
 const NE_HEADERS = { Referer: 'https://music.163.com', 'User-Agent': 'Mozilla/5.0' };
 const lyricsCache = new Map(); // "title|artist" -> syncedLyrics string | null
 
-/** @param {string} url @param {{ headers?: any, timeout?: number }} [opts] */
 async function fetchJSON(url, opts = {}) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), opts.timeout || 6000);
@@ -169,27 +168,66 @@ async function fetchJSON(url, opts = {}) {
   } catch { return null; } finally { clearTimeout(to); }
 }
 
-/** @param {any} lrc */
 const isSynced = (lrc) => typeof lrc === 'string' && /\[\d+:\d/.test(lrc);
 
-/** @param {{ title: string, artist: string, album: string, duration: string|number }} q */
+// 汽水 reports many remix/slowed/decorated titles; strip the decorations so they match
+// the original song on lrclib/NetEase (which is where the lyrics live).
+function cleanTitle(t) {
+  return String(t || '')
+    .replace(/[([【（].*?[)\]】）]/g, ' ')                                          // (...) [...] 【...】
+    .replace(/\s*[-—]\s*(remix|live|slow|sped.*|dj|伴奏|cover|inst.*|acoustic|remaster.*).*$/i, ' ')
+    .replace(/\s*(feat\.?|ft\.?|featuring)\s+.*$/i, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+const norm = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z一-鿿]/g, '');
+function artistMatch(a1, a2) {
+  const n2 = norm(a2);
+  const toks = String(a1 || '').toLowerCase().match(/[0-9a-z]+|[一-鿿]+/g) || [];
+  for (const t of toks) if (t.length >= 2 && n2.includes(t)) return true;
+  const n1 = norm(a1);
+  return !!n1 && (n2.includes(n1) || n1.includes(n2));
+}
+// Accept a search hit only if its name matches the cleaned title AND the artist matches
+// (when we have one) — otherwise a same-named unrelated song would hand back WRONG lyrics.
+function titleMatch(name, arts, ct, artist) {
+  const nn = norm(name), nc = norm(ct);
+  if (!nn || !nc) return false;
+  if (!(nn === nc || nn.includes(nc) || nc.includes(nn))) return false;
+  return artist ? artistMatch(artist, arts) : nn === nc;
+}
+
+// NetEase: search, then return the first VALIDATED hit that actually has synced lyrics.
+async function neLyric(query, ct, artist) {
+  const s = new URLSearchParams({ s: query, type: '1', limit: '8' });
+  const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
+  const songs = (sr && sr.result && sr.result.songs) || [];
+  for (const sg of songs.slice(0, 6)) {
+    const arts = (sg.artists || []).map((a) => a.name).join(',');
+    if (!titleMatch(sg.name, arts, ct, artist)) continue;
+    const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${sg.id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
+    const lrc = ly && ly.lrc && ly.lrc.lyric;
+    if (isSynced(lrc)) return lrc;
+  }
+  return null;
+}
+
 async function fetchLyrics(q) {
   const key = (q.title || '') + '|' + (q.artist || '');
   if (lyricsCache.has(key)) return lyricsCache.get(key);
+  const title = q.title || '', artist = q.artist || '', ct = cleanTitle(title) || title;
   let synced = null;
-  // 1) lrclib
-  const params = new URLSearchParams({ artist_name: q.artist || '', track_name: q.title || '', album_name: q.album || '', duration: String(q.duration || 0) });
-  const d = await fetchJSON('https://lrclib.net/api/get?' + params);
-  if (d && isSynced(d.syncedLyrics) && !d.instrumental) synced = d.syncedLyrics;
-  // 2) NetEase fallback (search -> top hit -> lyric)
-  if (!synced && q.title) {
-    const s = new URLSearchParams({ s: (q.title + ' ' + (q.artist || '')).trim(), type: '1', limit: '5' });
-    const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
-    const songs = sr && sr.result && sr.result.songs;
-    if (songs && songs.length) {
-      const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${songs[0].id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
-      const lrc = ly && ly.lrc && ly.lrc.lyric;
-      if (isSynced(lrc)) synced = lrc;
+  // 1) lrclib (full title, then cleaned)
+  for (const tt of [...new Set([title, ct].filter(Boolean))]) {
+    const params = new URLSearchParams({ artist_name: artist, track_name: tt, album_name: q.album || '', duration: String(q.duration || 0) });
+    const d = await fetchJSON('https://lrclib.net/api/get?' + params);
+    if (d && isSynced(d.syncedLyrics) && !d.instrumental) { synced = d.syncedLyrics; break; }
+  }
+  // 2) NetEase fallback — cleaned title (+artist), then cleaned alone, then the raw title
+  if (!synced && title) {
+    for (const query of [...new Set([(ct + ' ' + artist).trim(), ct, (title + ' ' + artist).trim()].filter(Boolean))]) {
+      synced = await neLyric(query, ct, artist);
+      if (synced) break;
     }
   }
   lyricsCache.set(key, synced);
