@@ -14,3 +14,11 @@ dist/
 
 # Third-party Now-Playing adapter (cloned + built by scripts/setup-nowplaying.sh)
 vendor/
+
+# Local-only notes & screenshots — kept on disk, never pushed to GitHub
+docs/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
