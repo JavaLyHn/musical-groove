@@ -209,15 +209,35 @@ function titleMatch(name, arts, ct, artist) {
   return artist ? artistMatch(artist, arts) : nn === nc;
 }
 
-// NetEase: search, then return the first VALIDATED hit that actually has synced lyrics.
+// markers of a NON-original upload (remix / cover / version / live) — used to deprioritize
+// the re-upload spam that pollutes NetEase search results.
+const VERSION_RX = /(remix|cover|live|inst|acoustic|\bdj\b|sped|slow|mashup|版|翻唱|伴奏|原唱|纯音乐|现场)/i;
+
+// NetEase: search, then among the hits that match the title (+artist when given), RANK them
+// and return the best one's synced lyrics. NetEase's open search is full of re-uploads, so
+// we prefer the original: exact title, a single (real) artist, no remix/cover/版 marker —
+// rather than blindly trusting the first hit.
 async function neLyric(query, ct, artist) {
-  const s = new URLSearchParams({ s: query, type: '1', limit: '8' });
+  const s = new URLSearchParams({ s: query, type: '1', limit: '10' });
   const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
   const songs = (sr && sr.result && sr.result.songs) || [];
-  for (const sg of songs.slice(0, 6)) {
-    const arts = (sg.artists || []).map((a) => a.name).join(',');
-    if (!titleMatch(sg.name, arts, ct, artist)) continue;
-    const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${sg.id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
+  const nc = norm(ct), na = norm(artist), rawArtist = String(artist || '').trim();
+  /** @type {{id:number, score:number}[]} */
+  const cands = [];
+  for (const sg of songs.slice(0, 10)) {
+    const artsArr = (sg.artists || []).map((a) => a.name);
+    if (!titleMatch(sg.name, artsArr.join(','), ct, artist)) continue;
+    let score = 0;
+    if (norm(sg.name) === nc) score += 4;                                            // exact title (no suffix)
+    if (artsArr.length === 1) score += 2;                                            // not a 2-artist re-upload
+    if (rawArtist && artsArr.some((a) => String(a).trim() === rawArtist)) score += 3; // real artist, exactly
+    else if (na && norm(artsArr.join(',')) === na) score += 2;
+    if (VERSION_RX.test(sg.name)) score -= 4;                                        // remix/cover/版/live
+    cands.push({ id: sg.id, score });
+  }
+  cands.sort((a, b) => b.score - a.score);
+  for (const c of cands.slice(0, 6)) {
+    const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${c.id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
     const lrc = ly && ly.lrc && ly.lrc.lyric;
     if (isSynced(lrc)) return lrc;
   }
@@ -243,6 +263,24 @@ async function lrclibLyric(title, ct, album, artist, duration) {
   return null;
 }
 
+// --- TITLE-ONLY fallbacks (last resort, only after strict title+artist fails). 汽水 often
+// tags songs with a compilation/uploader name (e.g. 金典名曲, 群星, DJ, 抖音热歌) instead of
+// the real artist, which makes the strict artist match reject everything. Here we match by
+// the cleaned TITLE alone — but require an EXACT title match (no fuzzy includes) so we still
+// don't grab an unrelated same-ish song (the earlier 无限猎犬→爱无限 class of bug).
+async function neLyricLoose(ct) {
+  return neLyric(ct, ct, ''); // empty artist -> titleMatch falls back to an exact name === ct
+}
+async function lrclibSearch(ct) {
+  const arr = await fetchJSON('https://lrclib.net/api/search?' + new URLSearchParams({ track_name: ct }));
+  if (!Array.isArray(arr)) return null;
+  const nc = norm(ct);
+  for (const d of arr.slice(0, 8)) {
+    if (d && isSynced(d.syncedLyrics) && !d.instrumental && norm(d.trackName) === nc) return d.syncedLyrics;
+  }
+  return null;
+}
+
 const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
 
 async function fetchLyrics(q) {
@@ -253,13 +291,25 @@ async function fetchLyrics(q) {
   // matches what 汽水 shows, whereas lrclib's community LRCs are frequently 繁体 — which is
   // the "把简体变繁体" bug. So CJK -> NetEase first; Western -> lrclib first. The other source
   // is always the fallback, so coverage is the union of both, just prioritized correctly.
+  const cjk = hasCJK(title) || hasCJK(artist);
   let synced = null;
-  if (hasCJK(title) || hasCJK(artist)) {
+  if (cjk) {
     synced = await neLyrics(title, ct, artist);
     if (!synced) synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
   } else {
     synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
     if (!synced && title) synced = await neLyrics(title, ct, artist);
+  }
+  // last resort: match by title alone (handles junk/compilation artist tags). Only reached
+  // when the strict pass found nothing, so it can't override a confident title+artist match.
+  if (!synced && ct) {
+    if (cjk) {
+      synced = await neLyricLoose(ct);
+      if (!synced) synced = await lrclibSearch(ct);
+    } else {
+      synced = await lrclibSearch(ct);
+      if (!synced) synced = await neLyricLoose(ct);
+    }
   }
   lyricsCache.set(key, synced);
   return synced;
