@@ -159,7 +159,9 @@ export function createGui({ rig, renderer }) {
 
   const fb = gui.addFolder('震动 Beat');
   fb.add(CONFIG.camera, 'beatKick', 0, 2, 0.05).name('节拍冲击 (相机)');
-  fb.add(CONFIG.post, 'bloomSpike', 0, 0.5, 0.01).name('节拍闪光');
+  fb.add(CONFIG.field, 'kickSurge', 0, 12, 0.5).name('鼓点抬升 (全场)');
+  fb.add(CONFIG.field, 'kickFlash', 0, 1.5, 0.05).name('鼓点闪光 (全场)');
+  fb.add(CONFIG.post, 'bloomSpike', 0, 0.5, 0.01).name('节拍闪光 (Bloom)');
   fb.add(CONFIG.motion, 'accentHeight', 0, 20, 0.5).name('重音柱高度');
   fb.add(CONFIG.field, 'reactive', 5, 40, 1).name('整体起伏');
 

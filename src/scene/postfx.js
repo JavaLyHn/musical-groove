@@ -114,10 +114,11 @@ export function createComposer(renderer, scene, camera) {
   }
 
   let bloomPulse = 0;
-  function update(dt, bass = 0) {
+  function update(dt, bass = 0, kick = 0) {
     final.uniforms.uTime.value += dt;
-    // beat bloom spike: fast attack, smooth decay (堆芯爆闪) — modest so it stays cool
-    bloomPulse = Math.max(bloomPulse * (1 - 5 * dt), bass);
+    // beat bloom spike: fast attack, smooth decay (堆芯爆闪). The KICK transient drives it now
+    // (sharp, on-the-beat) on top of a gentler continuous bass component.
+    bloomPulse = Math.max(bloomPulse * (1 - 5 * dt), Math.max(kick, bass * 0.6));
     bloom.strength = CONFIG.post.bloomStrength + bloomPulse * CONFIG.post.bloomSpike;
     bloom.threshold = CONFIG.post.bloomThreshold; // live for ?gui
     // accent wash, read live so the ?gui panel can swing the glow's hue in real time

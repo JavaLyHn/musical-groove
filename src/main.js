@@ -124,6 +124,7 @@ document.addEventListener('visibilitychange', () => { visible = !document.hidden
 
 const frameInterval = 1 / CONFIG.fpsCap;
 let acc = 0;
+let kickPunch = 0; // collective kick-punch envelope (instant attack, ~150ms decay) shared by field + bloom
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -139,14 +140,19 @@ function frame() {
   let flux = 0;
   for (let i = 0; i < spectrum.length; i++) { const d = spectrum[i] - prevSpec[i]; if (d > 0) flux += d; prevSpec[i] = spectrum[i]; }
   const onset = flux / spectrum.length;
-  field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset);
+  // collective kick PUNCH: instant attack on a detected kick, fast (~150ms) decay. Shared so the
+  // field (height surge + flash), bloom, and camera all land the drum on the SAME instant.
+  kickPunch *= Math.pow(0.85, dt * 60);
+  if (kickPunch < 0.002) kickPunch = 0;
+  if (beat.kick > 0) kickPunch = Math.max(kickPunch, Math.min(1, 0.45 + beat.kick * 0.55));
+  field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset, kickPunch);
   core.update(levels.bass, dt);
   stars.update(dt);
   sparks.update(onset, dt);
   lyrics.update(level, onset, dt);
   if (beat.kick) rig.kick(beat.kick); // beat-driven camera punch (震动感)
   rig.update(dt);
-  updateFx(dt, levels.bass);
+  updateFx(dt, levels.bass, kickPunch);
   composer.render();
 }
 requestAnimationFrame(frame);

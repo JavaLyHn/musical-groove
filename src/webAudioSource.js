@@ -44,7 +44,7 @@ export async function createWebAudioSource(opts = {}) {
   const srcNode = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;                 // -> 256 frequency bins (the shaper mel-rebins to CONFIG.bands)
-  analyser.smoothingTimeConstant = 0.82;  // temporal smoothing for fluid motion
+  analyser.smoothingTimeConstant = 0.5;   // lower -> sharp transients: the kick reads "on the beat", not ~200ms late
   srcNode.connect(analyser);
 
   const binCount = analyser.frequencyBinCount; // 256

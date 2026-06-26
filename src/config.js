@@ -51,6 +51,12 @@ export const CONFIG = {
     coreBoost: 1.6,          // emissive radial weight: centre x1.6, edge x1.0 -> a hot core floats out
     coreHeat: 0.7,           // bass-driven hot NUCLEUS: the low end burns the centre (fades to the rim) so
                              //   a focal white-hot core floats out instead of the whole field flashing flat
+    // KICK PUNCH: a fast, COLLECTIVE transient on every detected kick (set kick=1 then decay
+    // ×0.85/60fps ~150ms). Lifts + flashes the WHOLE field for one instant so the drum lands
+    // as a synchronized "咚" — between beats the per-column motion stays independent (the
+    // transient is gone in ~150ms, so it never regresses to "整片一起呼吸").
+    kickSurge: 4.0,          // collective height pop on the kick (units added to EVERY column)
+    kickFlash: 0.5,          // collective emissive flash on the kick (emissive *= 1 + kick*this)
     emissiveGain: 0.6,       // overall emissive exposure cut (dark field; ripples bypass it)
     brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
@@ -74,9 +80,9 @@ export const CONFIG = {
   motion: {
     radialDelay: 36,    // delay span centre->rim, in history rows (~0.6s at 60fps)
     levelFloor: 0.65,   // common-mode kill: loudness only scales height 0.65..1; per-band drive decides WHAT moves
-    bandAtkSlow: 0.16,  // low-band attack: slow rise (big swell)
-    bandAtkFast: 0.55,  // high-band attack: snappy rise (sharp hits)
-    bandDecSlow: 0.95,  // low-band decay per 60fps: slow melt
+    bandAtkSlow: 0.40,  // low-band attack: FAST rise (reclaim the punch; 0.16 was mushy/laggy)
+    bandAtkFast: 0.85,  // high-band attack: near-instant (sharp hits)
+    bandDecSlow: 0.92,  // low-band decay per 60fps: melt (a touch faster -> less smear)
     bandDecFast: 0.85,  // high-band decay per 60fps: fast fall (sparkle)
     // persistent TRAVELING WAVE: a directional sweep always flowing over the field
     // (wind), even between beats. Direction rotates slowly; amplitude swells with mids.
@@ -175,7 +181,7 @@ export const CONFIG = {
   // reference — its 85 would bury the camera inside our field); dial them live with ?gui.
   // beatKick: a per-kick camera PUNCH (quick zoom-in + a short vibration that decays) — the
   // main "震动感" lever. 0 = off, ~0.7 = lively, >1 = aggressive. Tunable live in ?gui.
-  camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0, beatKick: 0.8 },
+  camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0, beatKick: 1.0 },
   post: {
     bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.85, // higher -> only the very brightest pillar tops bloom
     vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.16, // bloomSpike = beat flash punch

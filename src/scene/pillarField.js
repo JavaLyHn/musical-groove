@@ -80,6 +80,7 @@ export function createPillarField() {
       uWhiteElev: { value: f.whiteElev }, uBrightFloor: { value: f.brightFloor }, uRadialDim: { value: f.radialDim },
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
       uCoreHeat: { value: f.coreHeat }, uHotColor: { value: new THREE.Color(CONFIG.colors.hot) },
+      uKick: { value: 0 }, uKickSurge: { value: f.kickSurge }, uKickFlash: { value: f.kickFlash },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uSegmented: { value: f.segmented === false ? 0 : 1 }, // 1 = segmented blocks, 0 = smooth bar
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
@@ -179,7 +180,7 @@ export function createPillarField() {
   let idleRippleT = 0;// timer for the standby ripple sweeps
 
   let levelSmooth = 0;
-  function update(spectrum, levels, level, beat, timbre, dt, onset = 0) {
+  function update(spectrum, levels, level, beat, timbre, dt, onset = 0, kickPunch = 0) {
     const t = performance.now() / 1000;
     // release tail: level rises fast but melts down slowly when the music drops/stops
     levelSmooth += (level - levelSmooth) * (level > levelSmooth ? 0.4 : 0.04);
@@ -237,8 +238,12 @@ export function createPillarField() {
       idleRippleT = m.idleRippleEvery - 0.4; // first sweep ~0.4s after going idle
     }
 
-    // beats -> sparse hard accents: a few random columns spark to max + flash
-    if (beat.kick > 0) spawnAccent(t, Math.min(1.0, beat.kick), Math.random() * 100);
+    // beats -> sparse hard accents: a few random columns spark to max + flash, AND a bright
+    // ring sweeping out from the core on the kick (directional 鼓动感; reinforces the onset ring).
+    if (beat.kick > 0) {
+      spawnAccent(t, Math.min(1.0, beat.kick), Math.random() * 100);
+      spawnRipple(t, Math.min(beat.kick * 1.3 + 0.3, 1.2), 0, 0, 0);
+    }
     if (beat.hat > 0) spawnAccent(t, Math.min(1.0, beat.hat * 0.8), Math.random() * 100);
     for (let i = 0; i < ACCENTS; i++) {
       if (accents[i].strength > 0 && t - accents[i].time > 1.0) accents[i].strength = 0;
@@ -254,6 +259,7 @@ export function createPillarField() {
     U.uWaveAmp.value = m.waveAmp;
     U.uIdleHeight.value = m.idleHeight;
     U.uCoreHeat.value = f.coreHeat;
+    U.uKick.value = kickPunch; U.uKickSurge.value = f.kickSurge; U.uKickFlash.value = f.kickFlash;
     U.uSegmented.value = f.segmented === false ? 0 : 1;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
@@ -312,6 +318,7 @@ uniform sampler2D uHistory;
 uniform float uMaxDelayRows, uLevelFloor;
 uniform float uMid;
 uniform float uWaveAmp, uWaveFreq, uWaveSpeed, uWaveRot;
+uniform float uKick, uKickSurge;
 uniform vec3 uAccentTSt[${ACCENTS}];
 uniform float uAccentHeight, uAccentDecay, uAccentThresh;
 uniform vec2 uRipplePos[${RIPPLES}];
@@ -370,6 +377,12 @@ vec2 _wdir = vec2(cos(_wd), sin(_wd));
 float _wave = sin(dot(aField, _wdir) * uWaveFreq - uTime * uWaveSpeed) * 0.5 + 0.5;
 elev += _wave * uWaveAmp * (0.4 + 1.4 * uMid);
 
+// COLLECTIVE KICK PUNCH: on every detected kick the WHOLE field pops up for one instant
+// (uKick: instant attack, ~150ms decay) — the synchronized "咚". Applied to every column
+// (so the dark short ones lift too, not just the few tall white spikes) and gone by the
+// next beat, so it never becomes a sustained "整片一起呼吸".
+elev += uKick * uKickSurge;
+
 // beat ripples expanding from the core (and offset hat pops)
 float rN = 0.0, rW = 0.0;
 for (int i = 0; i < ${RIPPLES}; i++) {
@@ -416,6 +429,7 @@ uniform vec3 uRampWarm[5];
 uniform vec3 uRippleColor;
 uniform vec3 uHotColor;
 uniform float uCoreHeat;
+uniform float uKick, uKickFlash;
 uniform vec3 uCoverTint;
 uniform float uCoverTintAmt;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW, vAccent;
@@ -488,6 +502,10 @@ if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += uHotColor * uBrilliance *
 // slightly stronger now so the tallest peaks keep their shape + cool gradient.
 float _mx = max(_emis.r, max(_emis.g, _emis.b));
 _emis *= 1.0 / (1.0 + _mx * 0.62);
+
+// COLLECTIVE KICK FLASH: the whole field brightens for the kick instant (after the knee so it
+// reads as a real pop). Pairs with the height surge -> the drum hits as a synchronized flash.
+_emis *= (1.0 + uKick * uKickFlash);
 
 // sparse accent flash: a sharp COOL-white pop that bypasses the exposure cut (spark on the field)
 _emis += uHotColor * clamp(vAccent, 0.0, 1.2) * 0.82;
