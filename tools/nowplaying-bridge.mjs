@@ -182,8 +182,8 @@ async function fetchJSON(url, opts = {}) {
 
 const isSynced = (lrc) => typeof lrc === 'string' && /\[\d+:\d/.test(lrc);
 
-// 汽水 reports many remix/slowed/decorated titles; strip the decorations so they match
-// the original song on lrclib/NetEase (which is where the lyrics live).
+// Strip the decorations 汽水 adds to titles (remix/slow/(...)) so the SEARCH can find the
+// song. This only affects the query — never the lyric text we display, which is shown as-is.
 function cleanTitle(t) {
   return String(t || '')
     .replace(/[([【（].*?[)\]】）]/g, ' ')                                          // (...) [...] 【...】
@@ -192,136 +192,82 @@ function cleanTitle(t) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-const norm = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z一-鿿]/g, '');
-function artistMatch(a1, a2) {
-  const n2 = norm(a2);
-  const toks = String(a1 || '').toLowerCase().match(/[0-9a-z]+|[一-鿿]+/g) || [];
-  for (const t of toks) if (t.length >= 2 && n2.includes(t)) return true;
-  const n1 = norm(a1);
-  return !!n1 && (n2.includes(n1) || n1.includes(n2));
-}
-// Accept a search hit only if its name matches the cleaned title AND the artist matches
-// (when we have one) — otherwise a same-named unrelated song would hand back WRONG lyrics.
-function titleMatch(name, arts, ct, artist) {
-  const nn = norm(name), nc = norm(ct);
-  if (!nn || !nc) return false;
-  if (!(nn === nc || nn.includes(nc) || nc.includes(nn))) return false;
-  return artist ? artistMatch(artist, arts) : nn === nc;
-}
+const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
 
-// markers of a NON-original upload (remix / cover / version / live) — used to deprioritize
-// the re-upload spam that pollutes NetEase search results.
-const VERSION_RX = /(remix|cover|live|inst|acoustic|\bdj\b|sped|slow|mashup|版|翻唱|伴奏|原唱|纯音乐|现场)/i;
-
-// NetEase: search, then among the hits that match the title (+artist when given), RANK them
-// and return the best one's synced lyrics. NetEase's open search is full of re-uploads, so
-// we prefer the original: exact title, a single (real) artist, no remix/cover/版 marker —
-// rather than blindly trusting the first hit.
-async function neLyric(query, ct, artist) {
+// NetEase: first search hit that has ORIGINAL synced lyrics. We read only `lrc.lyric` (the
+// original) — never `tlyric` (the translation) — and never judge by artist. If a song with
+// synced lyrics turns up, we return it verbatim.
+async function neLyric(query) {
   const s = new URLSearchParams({ s: query, type: '1', limit: '10' });
   const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
   const songs = (sr && sr.result && sr.result.songs) || [];
-  const nc = norm(ct), na = norm(artist), rawArtist = String(artist || '').trim();
-  /** @type {{id:number, score:number}[]} */
-  const cands = [];
-  for (const sg of songs.slice(0, 10)) {
-    const artsArr = (sg.artists || []).map((a) => a.name);
-    if (!titleMatch(sg.name, artsArr.join(','), ct, artist)) continue;
-    let score = 0;
-    if (norm(sg.name) === nc) score += 4;                                            // exact title (no suffix)
-    if (artsArr.length === 1) score += 2;                                            // not a 2-artist re-upload
-    if (rawArtist && artsArr.some((a) => String(a).trim() === rawArtist)) score += 3; // real artist, exactly
-    else if (na && norm(artsArr.join(',')) === na) score += 2;
-    if (VERSION_RX.test(sg.name)) score -= 4;                                        // remix/cover/版/live
-    cands.push({ id: sg.id, score });
-  }
-  cands.sort((a, b) => b.score - a.score);
-  for (const c of cands.slice(0, 6)) {
-    const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${c.id}&lv=1&kv=1&tv=-1`, { headers: NE_HEADERS });
-    const lrc = ly && ly.lrc && ly.lrc.lyric;
+  for (const sg of songs.slice(0, 8)) {
+    const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${sg.id}&lv=1&kv=0&tv=0`, { headers: NE_HEADERS });
+    const lrc = ly && ly.lrc && ly.lrc.lyric; // original only, as-is
     if (isSynced(lrc)) return lrc;
   }
   return null;
 }
 
-// NetEase, trying a few query forms (cleaned+artist, cleaned alone, raw+artist).
-async function neLyrics(title, ct, artist) {
-  for (const query of [...new Set([(ct + ' ' + artist).trim(), ct, (title + ' ' + artist).trim()].filter(Boolean))]) {
-    const r = await neLyric(query, ct, artist);
-    if (r) return r;
+// lrclib: exact get (best timing) then a title search; return the original synced lyrics
+// as-is (lrclib has no translation field, so syncedLyrics is already the original).
+async function lrclibByTitle(title, artist, album, duration) {
+  const params = new URLSearchParams({ artist_name: artist || '', track_name: title, album_name: album || '', duration: String(duration || 0) });
+  const d = await fetchJSON('https://lrclib.net/api/get?' + params);
+  if (d && isSynced(d.syncedLyrics) && !d.instrumental) return d.syncedLyrics;
+  const arr = await fetchJSON('https://lrclib.net/api/search?' + new URLSearchParams({ track_name: title }));
+  if (Array.isArray(arr)) {
+    for (const x of arr.slice(0, 8)) if (x && isSynced(x.syncedLyrics) && !x.instrumental) return x.syncedLyrics;
   }
   return null;
 }
 
-// lrclib, trying the full title then the cleaned title.
-async function lrclibLyric(title, ct, album, artist, duration) {
-  for (const tt of [...new Set([title, ct].filter(Boolean))]) {
-    const params = new URLSearchParams({ artist_name: artist, track_name: tt, album_name: album || '', duration: String(duration || 0) });
-    const d = await fetchJSON('https://lrclib.net/api/get?' + params);
-    if (d && isSynced(d.syncedLyrics) && !d.instrumental) return d.syncedLyrics;
-  }
-  return null;
-}
-
-// --- TITLE-ONLY fallbacks (last resort, only after strict title+artist fails). 汽水 often
-// tags songs with a compilation/uploader name (e.g. 金典名曲, 群星, DJ, 抖音热歌) instead of
-// the real artist, which makes the strict artist match reject everything. Here we match by
-// the cleaned TITLE alone — but require an EXACT title match (no fuzzy includes) so we still
-// don't grab an unrelated same-ish song (the earlier 无限猎犬→爱无限 class of bug).
-async function neLyricLoose(ct) {
-  return neLyric(ct, ct, ''); // empty artist -> titleMatch falls back to an exact name === ct
-}
-async function lrclibSearch(ct) {
-  const arr = await fetchJSON('https://lrclib.net/api/search?' + new URLSearchParams({ track_name: ct }));
-  if (!Array.isArray(arr)) return null;
-  const nc = norm(ct);
-  for (const d of arr.slice(0, 8)) {
-    if (d && isSynced(d.syncedLyrics) && !d.instrumental && norm(d.trackName) === nc) return d.syncedLyrics;
-  }
-  return null;
-}
-
-const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
-
+// Show whatever synced lyrics exist, AS-IS: no translation, no 简/繁 conversion, no artist
+// filtering, no remix/cover ranking. The only ordering is by script — CJK songs hit NetEase
+// first (mainland = 简体, matching what the player shows); everything else hits lrclib first —
+// purely so the text matches what you'd see in the player, not to alter it.
 async function fetchLyrics(q) {
   const key = (q.title || '') + '|' + (q.artist || '');
   if (lyricsCache.has(key)) return lyricsCache.get(key);
   const title = q.title || '', artist = q.artist || '', ct = cleanTitle(title) || title;
-  // Source order by script: for Chinese songs NetEase (mainland, 简体) is authoritative and
-  // matches what 汽水 shows, whereas lrclib's community LRCs are frequently 繁体 — which is
-  // the "把简体变繁体" bug. So CJK -> NetEase first; Western -> lrclib first. The other source
-  // is always the fallback, so coverage is the union of both, just prioritized correctly.
-  const cjk = hasCJK(title) || hasCJK(artist);
+  const titles = [...new Set([title, ct].filter(Boolean))];
   let synced = null;
-  if (cjk) {
-    synced = await neLyrics(title, ct, artist);
-    if (!synced) synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
-  } else {
-    synced = await lrclibLyric(title, ct, q.album, artist, q.duration);
-    if (!synced && title) synced = await neLyrics(title, ct, artist);
-  }
-  // last resort: match by title alone (handles junk/compilation artist tags). Only reached
-  // when the strict pass found nothing, so it can't override a confident title+artist match.
-  if (!synced && ct) {
-    if (cjk) {
-      synced = await neLyricLoose(ct);
-      if (!synced) synced = await lrclibSearch(ct);
-    } else {
-      synced = await lrclibSearch(ct);
-      if (!synced) synced = await neLyricLoose(ct);
+  const tryNE = async () => {
+    for (const tt of titles) {
+      if (artist) { synced = await neLyric((tt + ' ' + artist).trim()); if (synced) return true; }
+      synced = await neLyric(tt); if (synced) return true;
     }
-  }
+    return false;
+  };
+  const tryLrc = async () => {
+    for (const tt of titles) { synced = await lrclibByTitle(tt, artist, q.album, q.duration); if (synced) return true; }
+    return false;
+  };
+  if (hasCJK(title) || hasCJK(artist)) { (await tryNE()) || (await tryLrc()); }
+  else { (await tryLrc()) || (await tryNE()); }
   lyricsCache.set(key, synced);
   return synced;
 }
 
-// Seek the system player to `position` seconds. The adapter exposes a real `seek` command
-// (mediaremote-adapter.pl <fw> seek <pos>), so the progress bar can scrub actual playback.
+// Seek the system player to `position` SECONDS. The adapter's seek position is in
+// MICROSECONDS (see its --help), so convert — otherwise it seeks to ~0 and nothing moves.
 function seekTo(position) {
   const pos = Number(position);
   if (!Number.isFinite(pos) || pos < 0) return;
+  const micros = Math.round(pos * 1e6);
   try {
-    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'seek', pos.toFixed(3)], { stdio: 'ignore' });
+    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'seek', String(micros)], { stdio: 'ignore' });
+    p.on('error', () => {});
+  } catch { /* ignore */ }
+}
+
+// Send an MRCommand to the player (kMRPlay=0, kMRPause=1, kMRTogglePlayPause=2,
+// kMRNextTrack=4, kMRPreviousTrack=5). Used by the expanded card's transport buttons.
+function sendCommand(id) {
+  const n = parseInt(String(id), 10);
+  if (!Number.isFinite(n)) return;
+  try {
+    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'send', String(n)], { stdio: 'ignore' });
     p.on('error', () => {});
   } catch { /* ignore */ }
 }
@@ -359,6 +305,15 @@ export function nowPlayingVitePlugin() {
         try {
           const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
           seekTo(u.searchParams.get('pos') || u.searchParams.get('position') || '');
+          res.setHeader('Content-Type', 'application/json');
+          res.end('{"ok":true}');
+        } catch { res.statusCode = 500; res.end('{}'); }
+      });
+      // transport: GET /__cmd?id=<MRCommand> (prev=5, next=4, toggle play/pause=2)
+      server.middlewares.use('/__cmd', (req, res) => {
+        try {
+          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
+          sendCommand(u.searchParams.get('id') || '');
           res.setHeader('Content-Type', 'application/json');
           res.end('{"ok":true}');
         } catch { res.statusCode = 500; res.end('{}'); }

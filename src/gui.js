@@ -121,6 +121,7 @@ export function createGui({ rig, renderer }) {
   fl.add(CONFIG.field, 'segmented').name('分段柱体 (关=流畅整条)');
 
   const fly = gui.addFolder('歌词 Lyrics');
+  fly.add(CONFIG.lyrics, 'show').name('显示歌词');
   fly.add(CONFIG.lyrics, 'offset', -0.5, 2.5, 0.05).name('提前量 (s, 大=更早)');
   fly.add(CONFIG.lyrics, 'fontSize', 18, 64, 1).name('字号 (px)');
   fly.add(CONFIG.lyrics, 'bottom', 4, 45, 1).name('高度 (距底 %)');

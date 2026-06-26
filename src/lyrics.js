@@ -137,6 +137,10 @@ export function createLyrics() {
 
   /** @param {number} level @param {number} onset @param {number} _dt */
   function update(level, onset, _dt) {
+    if (CONFIG.lyrics.show === false) { // master on/off (?gui 歌词 -> 显示歌词)
+      if (lineIdx !== -1 || cur.classList.contains('show')) { lineIdx = -1; cur.classList.remove('show'); nxt.classList.remove('show'); }
+      return;
+    }
     applyStyle();
     if (!lines.length) {
       if (lineIdx !== -1) { lineIdx = -1; cur.classList.remove('show'); nxt.classList.remove('show'); }

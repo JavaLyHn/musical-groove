@@ -16,11 +16,12 @@ function mmss(s) {
   return m + ':' + (r < 10 ? '0' : '') + r;
 }
 
-/** @param {{ onColor?: (rgb: [number, number, number] | null) => void, onTrack?: (track: Track | null) => void, onSeek?: (seconds: number) => void }} [opts] */
+/** @param {{ onColor?: (rgb: [number, number, number] | null) => void, onTrack?: (track: Track | null) => void, onSeek?: (seconds: number) => void, onCmd?: (id: number) => void }} [opts] */
 export function createNowPlaying(opts = {}) {
   const onColor = opts.onColor || (() => {});
   const onTrack = opts.onTrack || (() => {});
   const onSeek = opts.onSeek || (() => {});
+  const onCmd = opts.onCmd || (() => {}); // MRCommand: prev=5, toggle play/pause=2, next=4
 
   const style = document.createElement('style');
   style.textContent = `
@@ -36,7 +37,7 @@ export function createNowPlaying(opts = {}) {
       transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1),
         border-radius .52s cubic-bezier(.32,.72,0,1), opacity .5s ease, transform .5s ease;}
     .np.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    .np.expanded{width:380px;height:188px;border-radius:26px;padding:14px;cursor:default}
+    .np.expanded{width:380px;height:228px;border-radius:26px;padding:14px;cursor:default}
 
     .np-main{display:flex;align-items:center;gap:11px;flex:0 0 auto;min-height:0}
     .np.expanded .np-main{align-items:flex-start}
@@ -60,8 +61,21 @@ export function createNowPlaying(opts = {}) {
       opacity:0;max-height:0;transition:opacity .3s ease}
     .np.expanded .np-album{opacity:1;max-height:18px}
 
+    /* transport controls — prev / play-pause / next (revealed in the card) */
+    .np-controls{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:26px;
+      margin-top:12px;opacity:0;pointer-events:none;transition:opacity .32s ease}
+    .np.expanded .np-controls{opacity:1;pointer-events:auto;transition-delay:.1s}
+    .np-btn{display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;padding:0;
+      background:transparent;color:#dfe6ff;transition:transform .12s ease, color .15s ease}
+    .np-btn:hover{color:#fff;transform:scale(1.12)}
+    .np-btn:active{transform:scale(.94)}
+    .np-prev,.np-next{font-size:22px;width:34px;height:34px}
+    .np-play{font-size:20px;width:44px;height:44px;border-radius:50%;
+      background:linear-gradient(135deg,#5FD0E0,#9A8FE6);color:#0a1226;box-shadow:0 3px 12px rgba(95,160,224,.45)}
+    .np-play:hover{color:#0a1226}
+
     /* seek bar — hidden/clipped when collapsed, revealed in the card */
-    .np-seek{flex:0 0 auto;margin-top:auto;display:flex;align-items:center;gap:9px;
+    .np-seek{flex:0 0 auto;margin-top:14px;display:flex;align-items:center;gap:9px;
       opacity:0;pointer-events:none;transition:opacity .32s ease}
     .np.expanded .np-seek{opacity:1;pointer-events:auto;transition-delay:.12s}
     .np-time{flex:0 0 auto;font-size:10px;color:#9aa6d4;font-variant-numeric:tabular-nums;min-width:30px;text-align:center}
@@ -87,6 +101,11 @@ export function createNowPlaying(opts = {}) {
       '<span class="np-time np-cur">0:00</span>' +
       '<div class="np-track"><div class="np-rail"></div><div class="np-fill"></div><div class="np-knob"></div></div>' +
       '<span class="np-time np-dur">0:00</span>' +
+    '</div>' +
+    '<div class="np-controls">' +
+      '<button class="np-btn np-prev" title="上一首">⏮</button>' +
+      '<button class="np-btn np-play" title="播放 / 暂停">⏸</button>' +
+      '<button class="np-btn np-next" title="下一首">⏭</button>' +
     '</div>';
   document.body.appendChild(wrap);
 
@@ -101,6 +120,9 @@ export function createNowPlaying(opts = {}) {
   const knob = /** @type {HTMLElement} */ (wrap.querySelector('.np-knob'));
   const curEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-cur'));
   const durEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-dur'));
+  const prevBtn = /** @type {HTMLElement} */ (wrap.querySelector('.np-prev'));
+  const playBtn = /** @type {HTMLElement} */ (wrap.querySelector('.np-play'));
+  const nextBtn = /** @type {HTMLElement} */ (wrap.querySelector('.np-next'));
 
   /** @type {Track|null} */
   let cur = null;
@@ -153,10 +175,11 @@ export function createNowPlaying(opts = {}) {
     dragging = false;
     trackEl.classList.remove('dragging');
     const dur = cur && cur.duration ? cur.duration : 0;
-    if (dur > 0) onSeek(dragRatio * dur);
-    // No optimistic jump: let the bridge re-broadcast the real position. Players that honor
-    // seek (Apple Music…) update within ~0.3s; players that ignore it (汽水) snap the bar
-    // back to the true spot — an honest signal rather than a lying bar.
+    if (dur > 0) {
+      const target = dragRatio * dur;
+      onSeek(target);
+      if (cur) { cur.elapsed = target; cur.posAt = Date.now(); } // optimistic; the bridge confirms
+    }
     try { trackEl.releasePointerCapture(e.pointerId); } catch { /* */ }
     paintProgress();
   };
@@ -169,6 +192,19 @@ export function createNowPlaying(opts = {}) {
     expanded = !expanded;
     wrap.classList.toggle('expanded', expanded);
   });
+
+  // transport — prev (5) / toggle play-pause (2) / next (4). Stop propagation so the click
+  // doesn't also collapse the card.
+  /** @param {Event} e @param {number} id */
+  const cmd = (e, id) => { e.stopPropagation(); onCmd(id); };
+  prevBtn.addEventListener('click', (e) => cmd(e, 5));
+  nextBtn.addEventListener('click', (e) => cmd(e, 4));
+  playBtn.addEventListener('click', (e) => {
+    cmd(e, 2);
+    if (cur) { cur.playing = !cur.playing; paintPlay(); } // optimistic; SSE confirms
+  });
+
+  function paintPlay() { playBtn.textContent = cur && cur.playing ? '⏸' : '▶'; }
 
   /** @param {string} dataUri */
   function extractColor(dataUri) {
@@ -198,6 +234,7 @@ export function createNowPlaying(opts = {}) {
     }
     seekEl.style.visibility = t.duration ? 'visible' : 'hidden';
     paintProgress();
+    paintPlay();
 
     const key = t.title + '|' + t.artist;
     if (key !== lastKey) {

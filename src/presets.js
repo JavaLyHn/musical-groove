@@ -18,6 +18,7 @@ function targets(refs) {
   const C = CONFIG, st = refs.rig.state, rn = refs.renderer;
   return [
     ['field.segmented', C.field, 'segmented'],
+    ['lyrics.show', C.lyrics, 'show'],
     ['lyrics.offset', C.lyrics, 'offset'],
     ['lyrics.fontSize', C.lyrics, 'fontSize'],
     ['lyrics.bottom', C.lyrics, 'bottom'],

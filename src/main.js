@@ -55,6 +55,7 @@ const nowPlaying = createNowPlaying({
   onColor: (rgb) => field.setCoverColor(rgb),
   onTrack: (t) => lyrics.setTrack(t),
   onSeek: (sec) => { fetch('/__seek?pos=' + sec.toFixed(2)).catch(() => {}); },
+  onCmd: (id) => { fetch('/__cmd?id=' + id).catch(() => {}); },
 });
 
 const core = createCore();
