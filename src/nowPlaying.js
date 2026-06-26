@@ -27,6 +27,7 @@ export function createNowPlaying(opts = {}) {
   style.textContent = `
     .np{position:fixed;top:16px;left:50%;z-index:9;box-sizing:border-box;
       transform:translateX(-50%) translateY(-12px) translateZ(0);opacity:0;pointer-events:auto;cursor:pointer;
+      -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
       width:248px;height:46px;padding:8px;border-radius:23px;overflow:hidden;
       display:flex;flex-direction:column;
       background:rgba(12,18,40,.46);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
@@ -47,6 +48,7 @@ export function createNowPlaying(opts = {}) {
     .np-main{display:flex;align-items:center;gap:11px;flex:0 0 auto;min-height:0}
     .np.expanded .np-main{align-items:flex-start}
     .np-cover{flex:0 0 auto;width:30px;height:30px;border-radius:7px;object-fit:cover;display:none;
+      -webkit-user-drag:none;-webkit-user-select:none;user-select:none;
       box-shadow:0 2px 10px rgba(0,0,0,.5);will-change:width,height;
       transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1), border-radius .52s cubic-bezier(.32,.72,0,1)}
     .np.expanded .np-cover{width:100px;height:100px;border-radius:14px}
@@ -66,18 +68,33 @@ export function createNowPlaying(opts = {}) {
       opacity:0;max-height:0;transition:opacity .3s ease}
     .np.expanded .np-album{opacity:1;max-height:18px}
 
-    /* transport controls — prev / play-pause / next (revealed in the card) */
-    .np-controls{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:26px;
+    /* transport controls — prev / play-pause / next, crisp SVG icons (revealed in the card) */
+    .np-controls{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:24px;
       margin-top:12px;opacity:0;pointer-events:none;transition:opacity .32s ease}
     .np.expanded .np-controls{opacity:1;pointer-events:auto;transition-delay:.1s}
     .np-btn{display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;padding:0;
-      background:transparent;color:#dfe6ff;transition:transform .12s ease, color .15s ease}
-    .np-btn:hover{color:#fff;transform:scale(1.12)}
-    .np-btn:active{transform:scale(.94)}
-    .np-prev,.np-next{font-size:22px;width:34px;height:34px}
-    .np-play{font-size:20px;width:44px;height:44px;border-radius:50%;
-      background:linear-gradient(135deg,#5FD0E0,#9A8FE6);color:#0a1226;box-shadow:0 3px 12px rgba(95,160,224,.45)}
-    .np-play:hover{color:#0a1226}
+      border-radius:50%;background:transparent;color:#cdd6ff;-webkit-tap-highlight-color:transparent;
+      transition:transform .16s cubic-bezier(.34,1.56,.64,1), background .18s ease, color .18s ease, box-shadow .2s ease}
+    .np-btn svg{display:block;pointer-events:none;fill:currentColor}
+    /* prev / next — ghost circles that light up on hover */
+    .np-prev,.np-next{width:38px;height:38px;background:rgba(255,255,255,.045);
+      box-shadow:inset 0 0 0 1px rgba(180,200,255,.08)}
+    .np-prev svg,.np-next svg{width:19px;height:19px}
+    .np-prev:hover,.np-next:hover{background:rgba(150,180,255,.18);color:#fff;transform:scale(1.07)}
+    .np-prev:active,.np-next:active{transform:scale(.9);background:rgba(150,180,255,.26)}
+    /* play / pause — filled gradient pebble, the focal control */
+    .np-play{width:48px;height:48px;color:#0a1430;
+      background:linear-gradient(140deg,#6fe1ec 0%,#88a2f5 52%,#a98ef0 100%);
+      box-shadow:0 6px 18px rgba(110,170,235,.5),inset 0 1px 0 rgba(255,255,255,.5)}
+    .np-play svg{width:21px;height:21px}
+    .np-play .np-ic-play{transform:translateX(1px)} /* optical-center the triangle */
+    .np-play:hover{color:#0a1430;transform:scale(1.07);
+      box-shadow:0 9px 26px rgba(120,180,240,.62),inset 0 1px 0 rgba(255,255,255,.55)}
+    .np-play:active{transform:scale(.93)}
+    /* toggle which glyph shows: play when paused, pause when playing */
+    .np-play .np-ic-pause{display:none}
+    .np-play.playing .np-ic-play{display:none}
+    .np-play.playing .np-ic-pause{display:block}
 
     /* seek bar — hidden/clipped when collapsed, revealed in the card */
     .np-seek{flex:0 0 auto;margin-top:14px;display:flex;align-items:center;gap:9px;
@@ -108,9 +125,16 @@ export function createNowPlaying(opts = {}) {
       '<span class="np-time np-dur">0:00</span>' +
     '</div>' +
     '<div class="np-controls">' +
-      '<button class="np-btn np-prev" title="上一首">⏮</button>' +
-      '<button class="np-btn np-play" title="播放 / 暂停">⏸</button>' +
-      '<button class="np-btn np-next" title="下一首">⏭</button>' +
+      '<button class="np-btn np-prev" title="上一首" aria-label="上一首">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm12 0l-9 6 9 6z"/></svg>' +
+      '</button>' +
+      '<button class="np-btn np-play" title="播放 / 暂停" aria-label="播放 / 暂停">' +
+        '<svg class="np-ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>' +
+        '<svg class="np-ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>' +
+      '</button>' +
+      '<button class="np-btn np-next" title="下一首" aria-label="下一首">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6h2v12h-2zM6 6l9 6-9 6z"/></svg>' +
+      '</button>' +
     '</div>';
   document.body.appendChild(wrap);
 
@@ -218,7 +242,8 @@ export function createNowPlaying(opts = {}) {
     if (cur) { cur.playing = !cur.playing; paintPlay(); } // optimistic; SSE confirms
   });
 
-  function paintPlay() { playBtn.textContent = cur && cur.playing ? '⏸' : '▶'; }
+  // playing -> show the pause glyph (so the button pauses); paused -> show the play glyph
+  function paintPlay() { playBtn.classList.toggle('playing', !!(cur && cur.playing)); }
 
   /** @param {string} dataUri */
   function extractColor(dataUri) {
