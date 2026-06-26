@@ -6,6 +6,7 @@
 // that matches the scene, pinned directly under the signature, with a Reset-to-defaults.
 import GUI from 'lil-gui';
 import { CONFIG } from './config.js';
+import { snapshot, applySnapshot, getPresets, setPresets, getLast, setLast } from './presets.js';
 
 // Transparent glass theme + position. !important is needed to beat lil-gui's own opaque
 // defaults; autoPlace:false (below) means we own the placement entirely.
@@ -73,22 +74,35 @@ function injectTheme() {
     .lil-gui.lyhn-gui .lyhn-reset:hover{ background:rgba(95,208,224,0.24); }
     .lil-gui.lyhn-gui .lyhn-reset:active{ transform:scale(0.98); }
     /* version presets — pinned under the title so the saved-version controls never scroll away */
-    .lil-gui.lyhn-gui .lyhn-presets{ flex:0 0 auto; display:flex; flex-direction:column; gap:6px;
-      padding:9px 10px; border-bottom:1px solid rgba(150,175,240,0.16); background:rgba(95,208,224,0.04); }
-    .lil-gui.lyhn-gui .lyhn-presets .row{ display:flex; gap:6px; align-items:center; }
-    .lil-gui.lyhn-gui .lyhn-presets select,
-    .lil-gui.lyhn-gui .lyhn-presets input{ flex:1 1 auto; min-width:0; height:25px; box-sizing:border-box;
-      font:600 11px/1 inherit; color:#eaf0ff; padding:0 8px; border-radius:6px;
-      background:rgba(120,170,235,0.12); border:1px solid rgba(150,175,240,0.22); outline:none; }
-    .lil-gui.lyhn-gui .lyhn-presets input::placeholder{ color:#7e8bc0; }
-    .lil-gui.lyhn-gui .lyhn-presets select option{ color:#10162e; }
-    .lil-gui.lyhn-gui .lyhn-presets button{ flex:0 0 auto; height:25px; padding:0 11px; cursor:pointer;
-      font:600 11px/1 inherit; letter-spacing:.06em; color:#bfeaf2; border-radius:6px;
-      background:rgba(95,208,224,0.12); border:1px solid rgba(95,208,224,0.30); transition:background .2s ease; }
-    .lil-gui.lyhn-gui .lyhn-presets button:hover{ background:rgba(95,208,224,0.24); }
-    .lil-gui.lyhn-gui .lyhn-presets button.danger{ color:#f2c0cf; background:rgba(224,95,128,0.10); border-color:rgba(224,95,128,0.32); }
-    .lil-gui.lyhn-gui .lyhn-presets button.danger:hover{ background:rgba(224,95,128,0.22); }
-    .lil-gui.lyhn-gui .lyhn-presets .msg{ min-height:12px; font-size:10px; letter-spacing:.04em; color:#86e6f4; }`;
+    .lil-gui.lyhn-gui .lyhn-presets{ flex:0 0 auto; display:flex; flex-direction:column; gap:7px;
+      padding:10px; border-bottom:1px solid rgba(150,175,240,0.16); background:rgba(95,208,224,0.045); }
+    .lil-gui.lyhn-gui .lyhn-presets .save-row{ display:flex; gap:6px; }
+    .lil-gui.lyhn-gui .lyhn-presets input{ flex:1 1 auto; min-width:0; height:26px; box-sizing:border-box;
+      font:600 11px/1 inherit; color:#eaf0ff; padding:0 9px; border-radius:7px;
+      background:rgba(120,170,235,0.14); border:1px solid rgba(150,175,240,0.26); outline:none; transition:border-color .15s ease, background .15s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets input:focus{ border-color:rgba(95,208,224,0.55); background:rgba(120,170,235,0.20); }
+    .lil-gui.lyhn-gui .lyhn-presets input::placeholder{ color:#8fa0d0; }
+    .lil-gui.lyhn-gui .lyhn-presets .save{ flex:0 0 auto; height:26px; padding:0 15px; cursor:pointer;
+      font:700 11px/1 inherit; letter-spacing:.08em; color:#0a1226; border:none; border-radius:7px;
+      background:linear-gradient(120deg,#5FD0E0,#9A8FE6); transition:filter .2s ease, transform .1s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets .save:hover{ filter:brightness(1.1); }
+    .lil-gui.lyhn-gui .lyhn-presets .save:active{ transform:scale(0.97); }
+    .lil-gui.lyhn-gui .lyhn-presets .plist{ display:flex; flex-direction:column; gap:4px; max-height:152px; overflow-y:auto; }
+    .lil-gui.lyhn-gui .lyhn-presets .plist::-webkit-scrollbar{ width:5px; }
+    .lil-gui.lyhn-gui .lyhn-presets .plist::-webkit-scrollbar-thumb{ background:rgba(120,170,235,0.30); border-radius:3px; }
+    .lil-gui.lyhn-gui .lyhn-presets .prow{ display:flex; gap:5px; align-items:stretch; }
+    .lil-gui.lyhn-gui .lyhn-presets .pload{ flex:1 1 auto; min-width:0; height:26px; padding:0 10px; cursor:pointer;
+      text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      font:500 11px/1 inherit; color:#d6e0fb; border-radius:6px;
+      background:rgba(120,170,235,0.10); border:1px solid rgba(150,175,240,0.18); transition:background .15s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets .pload:hover{ background:rgba(95,208,224,0.20); }
+    .lil-gui.lyhn-gui .lyhn-presets .prow.active .pload{ background:rgba(95,208,224,0.22); border-color:rgba(95,208,224,0.5); color:#eaf6ff; }
+    .lil-gui.lyhn-gui .lyhn-presets .prow.active .pload::before{ content:'✓ '; color:#86e6f4; }
+    .lil-gui.lyhn-gui .lyhn-presets .pdel{ flex:0 0 auto; width:26px; height:26px; cursor:pointer; font:600 14px/1 inherit;
+      color:#e79ab0; border-radius:6px; background:rgba(224,95,128,0.10); border:1px solid rgba(224,95,128,0.28); transition:background .15s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets .pdel:hover{ background:rgba(224,95,128,0.24); color:#ffd0dc; }
+    .lil-gui.lyhn-gui .lyhn-presets .empty{ font-size:10.5px; color:#8290bd; text-align:center; padding:5px 0; }
+    .lil-gui.lyhn-gui .lyhn-presets .msg{ min-height:13px; font-size:10.5px; letter-spacing:.04em; color:#86e6f4; text-align:center; }`;
   document.head.appendChild(s);
 }
 
@@ -152,94 +166,97 @@ export function createGui({ rig, renderer }) {
   resetBtn.addEventListener('click', () => gui.reset());
   gui.domElement.appendChild(resetBtn);
 
-  setupPresets(gui);
+  setupPresets(gui, { rig, renderer });
   return gui;
 }
 
-// VERSION PRESETS: save the whole panel state under a name and recall it later. A preset
-// is just `gui.save()` (every controller's value, by folder), stored in localStorage — so
-// it survives reloads and the wallpaper keeps your tuned look. The preset bar is custom
-// HTML (not a GUI folder) so it's excluded from the snapshot automatically.
-const PRESETS_KEY = 'lyhn-presets';      // { [name]: gui.save() }
-const LAST_KEY = 'lyhn-preset-last';     // name of the version to auto-restore on launch
-
-/** @param {import('lil-gui').GUI} gui */
-function setupPresets(gui) {
-  /** @type {Record<string, any>} */
-  let presets = {};
-  try { presets = JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}') || {}; } catch { presets = {}; }
-  const persist = () => { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch { /* storage off */ } };
-  /** @param {string|null} n */
-  const remember = (n) => { try { n ? localStorage.setItem(LAST_KEY, n) : localStorage.removeItem(LAST_KEY); } catch { /* */ } };
+// VERSION PRESETS bar (pinned under the title). Save the current settings under a name and
+// recall them. Storage + (de)serialization live in presets.js (lil-gui-free) so the last
+// version also auto-applies at page load — see main.js. Here we just drive the UI and push
+// restored values into the sliders. Saved versions are a clean clickable list (no native
+// <select>); each row loads on click, with a × to delete and a ✓ on the active one.
+/** @param {import('lil-gui').GUI} gui @param {{ rig:{state:any}, renderer:any }} refs */
+function setupPresets(gui, refs) {
+  let presets = getPresets();
+  let active = getLast(); // the currently-applied version (highlighted); already applied at load
 
   const bar = document.createElement('div');
   bar.className = 'lyhn-presets';
   bar.innerHTML =
-    '<div class="row"><select class="sel" title="切换已保存的版本"></select></div>' +
-    '<div class="row"><input class="name" type="text" placeholder="版本名称（留空=覆盖所选）" maxlength="24"/>' +
-    '<button class="save">保存</button><button class="del danger" title="删除所选版本">删除</button></div>' +
+    '<div class="save-row"><input class="name" type="text" maxlength="24" placeholder="为当前设置起个名…"/>' +
+    '<button class="save">保存</button></div>' +
+    '<div class="plist"></div>' +
     '<div class="msg"></div>';
-  const sel = /** @type {HTMLSelectElement} */ (bar.querySelector('.sel'));
   const nameInput = /** @type {HTMLInputElement} */ (bar.querySelector('.name'));
   const saveBtn = /** @type {HTMLButtonElement} */ (bar.querySelector('.save'));
-  const delBtn = /** @type {HTMLButtonElement} */ (bar.querySelector('.del'));
+  const list = /** @type {HTMLDivElement} */ (bar.querySelector('.plist'));
   const msgEl = /** @type {HTMLDivElement} */ (bar.querySelector('.msg'));
 
   let msgTimer = 0;
   /** @param {string} t */
-  const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2000); };
+  const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2200); };
 
-  function refreshSelect() {
+  // push restored CONFIG / camera / renderer values into the panel's sliders
+  const refreshDisplays = () => { for (const c of gui.controllersRecursive()) c.updateDisplay(); };
+
+  function renderList() {
+    list.innerHTML = '';
     const names = Object.keys(presets);
-    const keep = sel.value;
-    sel.innerHTML = '';
-    const ph = document.createElement('option');
-    ph.value = ''; ph.textContent = names.length ? '— 选择版本 —' : '— 暂无保存的版本 —';
-    sel.appendChild(ph);
-    for (const n of names) {
-      const o = document.createElement('option');
-      o.value = n; o.textContent = n; sel.appendChild(o);
+    if (!names.length) {
+      const e = document.createElement('div');
+      e.className = 'empty'; e.textContent = '还没有保存的版本';
+      list.appendChild(e);
+      return;
     }
-    if (keep && presets[keep]) sel.value = keep;
+    for (const n of names) {
+      const row = document.createElement('div');
+      row.className = 'prow' + (n === active ? ' active' : '');
+      const load = document.createElement('button');
+      load.className = 'pload'; load.textContent = n; load.title = '载入「' + n + '」';
+      load.addEventListener('click', () => doLoad(n));
+      const del = document.createElement('button');
+      del.className = 'pdel'; del.textContent = '×'; del.title = '删除「' + n + '」';
+      del.addEventListener('click', (ev) => { ev.stopPropagation(); doDelete(n); });
+      row.append(load, del);
+      list.appendChild(row);
+    }
   }
 
   function doSave() {
-    let name = nameInput.value.trim();
-    if (!name) name = sel.value;                 // empty name -> overwrite the selected version
+    let name = nameInput.value.trim() || active; // empty name -> overwrite the active version
     if (!name) { let i = 1; while (presets['版本 ' + i]) i++; name = '版本 ' + i; } // else auto-number
-    presets[name] = gui.save();                  // snapshot every controller value
-    persist(); refreshSelect();
-    sel.value = name; nameInput.value = ''; remember(name);
-    flash('已保存「' + name + '」');
-  }
-
-  function doDelete() {
-    const n = sel.value;
-    if (!n) { flash('请先选择一个版本'); return; }
-    delete presets[n]; persist(); refreshSelect();
-    if (localStorage.getItem(LAST_KEY) === n) remember(null);
-    flash('已删除「' + n + '」');
+    presets[name] = snapshot(refs);
+    setPresets(presets);
+    active = name; setLast(name);
+    nameInput.value = '';
+    renderList();
+    flash('✓ 已保存「' + name + '」');
   }
 
   /** @param {string} n */
   function doLoad(n) {
-    if (!n || !presets[n]) return;
-    try { gui.load(presets[n]); } catch { /* malformed preset */ }
-    remember(n);
+    if (!presets[n]) return;
+    applySnapshot(refs, presets[n]);
+    refreshDisplays();
+    active = n; setLast(n);
+    renderList();
     flash('已载入「' + n + '」');
   }
 
+  /** @param {string} n */
+  function doDelete(n) {
+    if (!presets[n]) return;
+    delete presets[n]; setPresets(presets);
+    if (active === n) { active = null; setLast(null); }
+    renderList();
+    flash('已删除「' + n + '」');
+  }
+
   saveBtn.addEventListener('click', doSave);
-  delBtn.addEventListener('click', doDelete);
-  sel.addEventListener('change', () => doLoad(sel.value));
   nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
 
-  refreshSelect();
+  renderList();
   // pin the bar directly under the title, above the scrolling folder list
   const title = gui.domElement.querySelector(':scope > .title');
   if (title) title.insertAdjacentElement('afterend', bar); else gui.domElement.appendChild(bar);
-
-  // auto-restore the last-used version so the wallpaper reopens with your saved look
-  const last = localStorage.getItem(LAST_KEY);
-  if (last && presets[last]) { sel.value = last; try { gui.load(presets[last]); } catch { /* */ } }
 }

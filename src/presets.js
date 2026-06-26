@@ -1,0 +1,87 @@
+// @ts-check
+// Version presets: snapshot the tunable parameters under a name in localStorage and recall
+// them. Crucially this module is lil-gui-FREE, so main.js can apply the last-used version at
+// page load — BEFORE/without opening the (lazily-loaded) control panel — and the wallpaper
+// reopens with your saved look. (Previously the restore lived inside the panel, so a saved
+// version only re-applied when you opened it, which made "save" look like it did nothing.)
+import { CONFIG } from './config.js';
+
+const PRESETS_KEY = 'lyhn-presets';   // { [name]: snapshot }
+const LAST_KEY = 'lyhn-preset-last';  // name of the version to auto-apply on load
+
+/** @typedef {{ rig: { state: any }, renderer: any }} Refs */
+
+// The exact set of user-tunable parameters a version captures: [stableKey, object, property].
+// KEEP IN SYNC with the controls created in gui.js.
+/** @param {Refs} refs @returns {[string, any, string][]} */
+function targets(refs) {
+  const C = CONFIG, st = refs.rig.state, rn = refs.renderer;
+  return [
+    ['field.segmented', C.field, 'segmented'],
+    ['lyrics.offset', C.lyrics, 'offset'],
+    ['lyrics.fontSize', C.lyrics, 'fontSize'],
+    ['lyrics.bottom', C.lyrics, 'bottom'],
+    ['lyrics.glow', C.lyrics, 'glow'],
+    ['lyrics.pulse', C.lyrics, 'pulse'],
+    ['lyrics.showNext', C.lyrics, 'showNext'],
+    ['ripple.sensitivity', C.ripple, 'sensitivity'],
+    ['ripple.cooldown', C.ripple, 'cooldown'],
+    ['meteor.sensitivity', C.meteor, 'sensitivity'],
+    ['meteor.cooldown', C.meteor, 'cooldown'],
+    ['motion.idleDebounce', C.motion, 'idleDebounce'],
+    ['motion.idleTransition', C.motion, 'idleTransition'],
+    ['motion.idleSilence', C.motion, 'idleSilence'],
+    ['motion.idleHeight', C.motion, 'idleHeight'],
+    ['motion.idleRippleEvery', C.motion, 'idleRippleEvery'],
+    ['motion.idleRippleStrength', C.motion, 'idleRippleStrength'],
+    ['motion.radialDelay', C.motion, 'radialDelay'],
+    ['motion.levelFloor', C.motion, 'levelFloor'],
+    ['motion.waveAmp', C.motion, 'waveAmp'],
+    ['wave.idleSpeed', C.wave, 'idleSpeed'],
+    ['camera.pitchDeg', st, 'pitchDeg'],
+    ['camera.distance', st, 'distance'],
+    ['camera.fov', st, 'fov'],
+    ['camera.orbitSpeed', st, 'orbitSpeed'],
+    ['post.accentColor', C.post, 'accentColor'],
+    ['post.accentIntensity', C.post, 'accentIntensity'],
+    ['post.bloomThreshold', C.post, 'bloomThreshold'],
+    ['renderer.exposure', rn, 'toneMappingExposure'],
+  ];
+}
+
+/** Capture the current values. @param {Refs} refs @returns {Record<string, any>} */
+export function snapshot(refs) {
+  /** @type {Record<string, any>} */
+  const out = {};
+  for (const [key, obj, prop] of targets(refs)) out[key] = obj[prop];
+  return out;
+}
+
+/** Write a snapshot back onto the live objects. @param {Refs} refs @param {Record<string, any>} data */
+export function applySnapshot(refs, data) {
+  if (!data || typeof data !== 'object') return;
+  for (const [key, obj, prop] of targets(refs)) {
+    if (key in data && data[key] !== undefined) obj[prop] = data[key];
+  }
+}
+
+/** @returns {Record<string, any>} */
+export function getPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}') || {}; } catch { return {}; }
+}
+/** @param {Record<string, any>} p */
+export function setPresets(p) { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); } catch { /* storage off */ } }
+/** @returns {string|null} */
+export function getLast() { try { return localStorage.getItem(LAST_KEY); } catch { return null; } }
+/** @param {string|null} n */
+export function setLast(n) { try { n ? localStorage.setItem(LAST_KEY, n) : localStorage.removeItem(LAST_KEY); } catch { /* */ } }
+
+/** Apply the last-used version at startup (no panel needed). @param {Refs} refs @returns {string|null} the applied name */
+export function applyLast(refs) {
+  const last = getLast();
+  if (!last) return null;
+  const presets = getPresets();
+  if (!presets[last]) return null;
+  applySnapshot(refs, presets[last]);
+  return last;
+}

@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { applyLast } from './presets.js';
 import { applyQuality } from './quality.js';
 // Live quality override for finding a machine's sweet spot: ?q=low|mid|high
 const _q = new URLSearchParams(location.search).get('q');
@@ -69,6 +70,10 @@ scene.add(atmosphere.sprite);
 
 const rig = createCameraRig(camera, scene);
 const { composer, setSize, update: updateFx } = createComposer(renderer, scene, camera);
+
+// Apply the last-saved version at load (no panel needed), so the wallpaper reopens with the
+// look you saved. Values land in CONFIG / rig.state / renderer, which the loop reads live.
+if (applyLast({ rig, renderer })) rig.apply();
 
 // LyHN signature (top-left): click it to toggle the live control panel. lil-gui is
 // dynamically imported on first open, so it's code-split out of the wallpaper bundle.
