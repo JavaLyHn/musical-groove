@@ -102,6 +102,9 @@ function injectTheme() {
     .lil-gui.lyhn-gui .lyhn-presets .prename{ flex:1 1 auto; min-width:0; height:26px; box-sizing:border-box; outline:none;
       font:600 11px/1 inherit; color:#eaf0ff !important; padding:0 9px; border-radius:6px;
       background:rgba(120,170,235,0.20) !important; border:1px solid rgba(95,208,224,0.55) !important; }
+    .lil-gui.lyhn-gui .lyhn-presets .pconfirm{ flex:1 1 auto; min-width:0; display:flex; align-items:center; padding:0 4px;
+      font-size:10.5px; color:#f2b8c6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lil-gui.lyhn-gui .lyhn-presets .pc-yes, .lil-gui.lyhn-gui .lyhn-presets .pcancel{ width:auto; padding:0 11px; font-size:11px; }
     .lil-gui.lyhn-gui .lyhn-presets .empty{ font-size:10.5px; color:#8290bd; text-align:center; padding:5px 0; }
     .lil-gui.lyhn-gui .lyhn-presets .msg{ min-height:13px; font-size:10.5px; letter-spacing:.04em; color:#86e6f4; text-align:center; }`;
   document.head.appendChild(s);
@@ -152,6 +155,12 @@ export function createGui({ rig, renderer }) {
   fc.add(rig.state, 'distance', 40, 400, 5).name('距离');
   fc.add(rig.state, 'fov', 10, 90, 1).name('视角 fov');
   fc.add(rig.state, 'orbitSpeed', 0, 1, 0.01).name('自转速度');
+
+  const fb = gui.addFolder('震动 Beat');
+  fb.add(CONFIG.camera, 'beatKick', 0, 2, 0.05).name('节拍冲击 (相机)');
+  fb.add(CONFIG.post, 'bloomSpike', 0, 0.5, 0.01).name('节拍闪光');
+  fb.add(CONFIG.motion, 'accentHeight', 0, 20, 0.5).name('重音柱高度');
+  fb.add(CONFIG.field, 'reactive', 5, 40, 1).name('整体起伏');
 
   const fp = gui.addFolder('后期 Post');
   fp.addColor(CONFIG.post, 'accentColor').name('强调色');
@@ -209,9 +218,25 @@ function setupPresets(gui, refs) {
     edit.addEventListener('click', (ev) => { ev.stopPropagation(); beginRename(row, n); });
     const del = document.createElement('button');
     del.className = 'pdel'; del.textContent = '×'; del.title = '删除「' + n + '」';
-    del.addEventListener('click', (ev) => { ev.stopPropagation(); doDelete(n); });
+    del.addEventListener('click', (ev) => { ev.stopPropagation(); askDelete(row, n); });
     row.append(load, edit, del);
     return row;
+  }
+
+  // delete needs a confirm: the row swaps to "删除「name」? [删除] [取消]" so a stray click
+  // can't wipe a saved version.
+  /** @param {HTMLDivElement} row @param {string} n */
+  function askDelete(row, n) {
+    row.replaceChildren();
+    const q = document.createElement('span');
+    q.className = 'pconfirm'; q.textContent = '删除「' + n + '」?';
+    const yes = document.createElement('button');
+    yes.className = 'pdel pc-yes'; yes.textContent = '删除'; yes.title = '确认删除';
+    yes.addEventListener('click', (ev) => { ev.stopPropagation(); doDelete(n); });
+    const no = document.createElement('button');
+    no.className = 'pedit pcancel'; no.textContent = '取消'; no.title = '取消';
+    no.addEventListener('click', (ev) => { ev.stopPropagation(); renderList(); });
+    row.append(q, yes, no);
   }
 
   function renderList() {

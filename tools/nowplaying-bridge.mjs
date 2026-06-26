@@ -315,6 +315,17 @@ async function fetchLyrics(q) {
   return synced;
 }
 
+// Seek the system player to `position` seconds. The adapter exposes a real `seek` command
+// (mediaremote-adapter.pl <fw> seek <pos>), so the progress bar can scrub actual playback.
+function seekTo(position) {
+  const pos = Number(position);
+  if (!Number.isFinite(pos) || pos < 0) return;
+  try {
+    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'seek', pos.toFixed(3)], { stdio: 'ignore' });
+    p.on('error', () => {});
+  } catch { /* ignore */ }
+}
+
 // Vite dev-server plugin: spawn the bridge and serve the stream at /__nowplaying,
 // on whatever port Vite runs (so it follows the user's --port 5188). Dev only.
 export function nowPlayingVitePlugin() {
@@ -341,6 +352,15 @@ export function nowPlayingVitePlugin() {
           });
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ syncedLyrics: synced }));
+        } catch { res.statusCode = 500; res.end('{}'); }
+      });
+      // seek the system player: GET /__seek?pos=<seconds> (drag the progress bar)
+      server.middlewares.use('/__seek', (req, res) => {
+        try {
+          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
+          seekTo(u.searchParams.get('pos') || u.searchParams.get('position') || '');
+          res.setHeader('Content-Type', 'application/json');
+          res.end('{"ok":true}');
         } catch { res.statusCode = 500; res.end('{}'); }
       });
       const close = () => { bridge?.stop(); bridge = null; };

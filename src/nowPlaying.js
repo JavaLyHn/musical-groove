@@ -1,55 +1,174 @@
 // @ts-check
-// A minimal top-of-screen line — small cover thumbnail + "title — artist" — that
-// fades in when the track changes. The track data arrives over Server-Sent Events
-// from the dev server's now-playing bridge (see tools/nowplaying-bridge.mjs), which
-// reads macOS "Now Playing". On each track change we also pull the cover's dominant
-// colour and hand it to `onColor` so the scene's palette can follow the album art.
+// Top-of-screen "now playing" surface that behaves like the iOS Dynamic Island: a compact
+// pill (cover + title — artist + a thin progress underline) that, on click, morphs smoothly
+// into a larger card showing the big cover, full title / artist / album, and a DRAGGABLE
+// progress bar that seeks real playback (via the bridge's /__seek). Track data arrives over
+// SSE from the now-playing bridge; on each track change we also pull the cover's dominant
+// colour for the scene palette (onColor).
 import { coverColorFromImage } from './util/coverColor.js';
 
-/** @typedef {{ title: string, artist: string, album: string, playing: boolean, duration: number|null, bundleId: string, artwork: string|null, elapsed: number, posAt: number, rate: number }} Track */
+/** @typedef {{ title:string, artist:string, album:string, playing:boolean, duration:number|null, bundleId:string, artwork:string|null, elapsed:number, posAt:number, rate:number }} Track */
 
-/** @param {{ onColor?: (rgb: [number, number, number] | null) => void, onTrack?: (track: Track | null) => void }} [opts] */
+/** @param {number} s @returns {string} m:ss */
+function mmss(s) {
+  if (!isFinite(s) || s < 0) s = 0;
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return m + ':' + (r < 10 ? '0' : '') + r;
+}
+
+/** @param {{ onColor?: (rgb: [number, number, number] | null) => void, onTrack?: (track: Track | null) => void, onSeek?: (seconds: number) => void }} [opts] */
 export function createNowPlaying(opts = {}) {
   const onColor = opts.onColor || (() => {});
   const onTrack = opts.onTrack || (() => {});
+  const onSeek = opts.onSeek || (() => {});
 
   const style = document.createElement('style');
   style.textContent = `
-    .now-playing{position:fixed;top:18px;left:50%;z-index:9;
-      transform:translateX(-50%) translateY(-10px);opacity:0;
-      display:flex;align-items:center;gap:10px;pointer-events:none;
-      padding:6px 15px 6px 6px;border-radius:999px;
-      background:rgba(12,18,40,.34);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-      box-shadow:0 2px 18px rgba(0,0,0,.25);
+    .np{position:fixed;top:16px;left:50%;z-index:9;box-sizing:border-box;
+      transform:translateX(-50%) translateY(-12px);opacity:0;pointer-events:auto;cursor:pointer;
+      width:248px;height:46px;padding:8px;border-radius:23px;overflow:hidden;
+      display:flex;flex-direction:column;
+      background:rgba(12,18,40,.46);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
+      box-shadow:0 6px 28px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);
+      border:1px solid rgba(150,175,240,.16);
       font-family:-apple-system,"PingFang SC",system-ui,sans-serif;
-      transition:opacity .6s ease, transform .6s ease}
-    .now-playing.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    .now-playing .cover{width:26px;height:26px;border-radius:6px;object-fit:cover;display:none;
-      box-shadow:0 1px 6px rgba(0,0,0,.45)}
-    .now-playing .glyph{font-size:13px;color:#aeb6e6;display:none;padding:0 2px}
-    .now-playing .meta{font-size:13px;letter-spacing:.02em;white-space:nowrap;
-      max-width:46vw;overflow:hidden;text-overflow:ellipsis}
-    .now-playing .meta b{color:#eef1ff;font-weight:600}
-    .now-playing .meta span{color:#aab2dd;margin-left:7px}`;
+      /* the silky morph — iOS-style ease, size + radius together */
+      transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1),
+        border-radius .52s cubic-bezier(.32,.72,0,1), opacity .5s ease, transform .5s ease;}
+    .np.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .np.expanded{width:380px;height:188px;border-radius:26px;padding:14px;cursor:default}
+
+    .np-main{display:flex;align-items:center;gap:11px;flex:0 0 auto;min-height:0}
+    .np.expanded .np-main{align-items:flex-start}
+    .np-cover{flex:0 0 auto;width:30px;height:30px;border-radius:7px;object-fit:cover;display:none;
+      box-shadow:0 2px 10px rgba(0,0,0,.5);
+      transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1), border-radius .52s cubic-bezier(.32,.72,0,1)}
+    .np.expanded .np-cover{width:100px;height:100px;border-radius:14px}
+    .np-glyph{flex:0 0 auto;width:30px;height:30px;border-radius:7px;display:none;align-items:center;justify-content:center;
+      color:#aeb6e6;font-size:15px;background:rgba(120,170,235,.14);
+      transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1)}
+    .np.expanded .np-glyph{width:100px;height:100px;border-radius:14px;font-size:42px}
+
+    .np-meta{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;gap:2px}
+    .np.expanded .np-meta{padding-top:4px;gap:5px}
+    .np-title{color:#eef1ff;font-weight:600;font-size:13px;line-height:1.25;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .np.expanded .np-title{font-size:17px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .np-artist{color:#aab2dd;font-size:12px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .np.expanded .np-artist{font-size:13px}
+    .np-album{color:#7e8bc0;font-size:11px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      opacity:0;max-height:0;transition:opacity .3s ease}
+    .np.expanded .np-album{opacity:1;max-height:18px}
+
+    /* seek bar — hidden/clipped when collapsed, revealed in the card */
+    .np-seek{flex:0 0 auto;margin-top:auto;display:flex;align-items:center;gap:9px;
+      opacity:0;pointer-events:none;transition:opacity .32s ease}
+    .np.expanded .np-seek{opacity:1;pointer-events:auto;transition-delay:.12s}
+    .np-time{flex:0 0 auto;font-size:10px;color:#9aa6d4;font-variant-numeric:tabular-nums;min-width:30px;text-align:center}
+    .np-track{position:relative;flex:1 1 auto;height:16px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+    .np-rail{position:absolute;left:0;right:0;height:4px;border-radius:2px;background:rgba(150,170,235,.22)}
+    .np-fill{position:absolute;left:0;height:4px;border-radius:2px;width:0;
+      background:linear-gradient(90deg,#5FD0E0,#9A8FE6);transition:width .2s linear}
+    .np-knob{position:absolute;width:12px;height:12px;border-radius:50%;background:#eaf0ff;
+      transform:translateX(-50%);left:0;box-shadow:0 1px 5px rgba(0,0,0,.5);
+      opacity:0;transition:opacity .2s ease, left .2s linear}
+    .np.expanded .np-track:hover .np-knob,.np-track.dragging .np-knob{opacity:1}
+    .np-track.dragging .np-fill,.np-track.dragging .np-knob{transition:none}`;
   document.head.appendChild(style);
 
   const wrap = document.createElement('div');
-  wrap.className = 'now-playing';
-  const cover = document.createElement('img');
-  cover.className = 'cover';
-  cover.alt = '';
-  const glyph = document.createElement('span');
-  glyph.className = 'glyph';
-  glyph.textContent = '♪';
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const titleEl = document.createElement('b');
-  const artistEl = document.createElement('span');
-  meta.append(titleEl, artistEl);
-  wrap.append(cover, glyph, meta);
+  wrap.className = 'np';
+  wrap.innerHTML =
+    '<div class="np-main">' +
+      '<img class="np-cover" alt=""/><span class="np-glyph">♪</span>' +
+      '<div class="np-meta"><div class="np-title"></div><div class="np-artist"></div><div class="np-album"></div></div>' +
+    '</div>' +
+    '<div class="np-seek">' +
+      '<span class="np-time np-cur">0:00</span>' +
+      '<div class="np-track"><div class="np-rail"></div><div class="np-fill"></div><div class="np-knob"></div></div>' +
+      '<span class="np-time np-dur">0:00</span>' +
+    '</div>';
   document.body.appendChild(wrap);
 
+  const cover = /** @type {HTMLImageElement} */ (wrap.querySelector('.np-cover'));
+  const glyph = /** @type {HTMLElement} */ (wrap.querySelector('.np-glyph'));
+  const titleEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-title'));
+  const artistEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-artist'));
+  const albumEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-album'));
+  const seekEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-seek'));
+  const trackEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-track'));
+  const fill = /** @type {HTMLElement} */ (wrap.querySelector('.np-fill'));
+  const knob = /** @type {HTMLElement} */ (wrap.querySelector('.np-knob'));
+  const curEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-cur'));
+  const durEl = /** @type {HTMLElement} */ (wrap.querySelector('.np-dur'));
+
+  /** @type {Track|null} */
+  let cur = null;
   let lastKey = '';
+  let expanded = false;
+  let dragging = false;
+  let dragRatio = 0;
+
+  function livePos() {
+    if (!cur) return 0;
+    const base = cur.elapsed || 0;
+    if (!cur.playing) return base;
+    return base + (Date.now() - (cur.posAt || Date.now())) / 1000 * (cur.rate || 1);
+  }
+
+  // paint the progress bar (skipped mid-drag, where the pointer drives it instead)
+  function paintProgress() {
+    const dur = cur && cur.duration ? cur.duration : 0;
+    const ratio = dragging ? dragRatio : (dur > 0 ? Math.min(livePos() / dur, 1) : 0);
+    const pct = (ratio * 100).toFixed(2) + '%';
+    fill.style.width = pct;
+    knob.style.left = pct;
+    curEl.textContent = mmss(dragging ? dragRatio * dur : livePos());
+    durEl.textContent = mmss(dur);
+  }
+
+  /** @param {number} clientX */
+  function ratioFromX(clientX) {
+    const r = trackEl.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - r.left) / Math.max(1, r.width)));
+  }
+
+  trackEl.addEventListener('pointerdown', (e) => {
+    if (!cur || !cur.duration) return;
+    e.stopPropagation();           // don't toggle the card
+    dragging = true;
+    trackEl.classList.add('dragging');
+    dragRatio = ratioFromX(e.clientX);
+    trackEl.setPointerCapture(e.pointerId);
+    paintProgress();
+  });
+  trackEl.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    dragRatio = ratioFromX(e.clientX);
+    paintProgress();
+  });
+  /** @param {PointerEvent} e */
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    trackEl.classList.remove('dragging');
+    const dur = cur && cur.duration ? cur.duration : 0;
+    if (dur > 0) onSeek(dragRatio * dur);
+    // No optimistic jump: let the bridge re-broadcast the real position. Players that honor
+    // seek (Apple Music…) update within ~0.3s; players that ignore it (汽水) snap the bar
+    // back to the true spot — an honest signal rather than a lying bar.
+    try { trackEl.releasePointerCapture(e.pointerId); } catch { /* */ }
+    paintProgress();
+  };
+  trackEl.addEventListener('pointerup', endDrag);
+  trackEl.addEventListener('pointercancel', endDrag);
+
+  // click the pill / card to expand or collapse
+  wrap.addEventListener('click', () => {
+    if (!cur) return;
+    expanded = !expanded;
+    wrap.classList.toggle('expanded', expanded);
+  });
 
   /** @param {string} dataUri */
   function extractColor(dataUri) {
@@ -59,42 +178,42 @@ export function createNowPlaying(opts = {}) {
     im.src = dataUri;
   }
 
-  /** @param {Track | null} track */
-  function render(track) {
-    onTrack(track); // every message, so lyrics keep fresh playback timing
-    if (!track || !track.title) {
-      wrap.classList.remove('show');
-      lastKey = '';
+  /** @param {Track | null} t */
+  function render(t) {
+    onTrack(t); // every message, so lyrics keep fresh playback timing
+    cur = t;
+    if (!t || !t.title) {
+      wrap.classList.remove('show', 'expanded');
+      expanded = false; lastKey = '';
       onColor(null);
       return;
     }
-    titleEl.textContent = track.title;
-    artistEl.textContent = track.artist ? '— ' + track.artist : '';
-    if (track.artwork) {
-      cover.src = track.artwork;
-      cover.style.display = 'block';
-      glyph.style.display = 'none';
+    titleEl.textContent = t.title;
+    artistEl.textContent = t.artist || '';
+    albumEl.textContent = t.album || '';
+    if (t.artwork) {
+      cover.src = t.artwork; cover.style.display = 'block'; glyph.style.display = 'none';
     } else {
-      cover.removeAttribute('src');
-      cover.style.display = 'none';
-      glyph.style.display = 'inline';
+      cover.removeAttribute('src'); cover.style.display = 'none'; glyph.style.display = 'flex';
     }
+    seekEl.style.visibility = t.duration ? 'visible' : 'hidden';
+    paintProgress();
 
-    const key = track.title + '|' + track.artist;
+    const key = t.title + '|' + t.artist;
     if (key !== lastKey) {
       lastKey = key;
-      // re-trigger the entrance fade on a genuine track change
       wrap.classList.remove('show');
-      void wrap.offsetWidth; // reflow so the transition restarts
+      void wrap.offsetWidth;       // reflow so the entrance restarts on a real track change
       wrap.classList.add('show');
-      if (track.artwork) extractColor(track.artwork); else onColor(null);
+      if (t.artwork) extractColor(t.artwork); else onColor(null);
     } else {
       wrap.classList.add('show');
     }
   }
 
-  // EventSource auto-reconnects; if the bridge isn't running (e.g. a production
-  // build with no dev server) it just keeps retrying quietly and nothing shows.
+  // keep the bar moving between SSE messages; CSS .2s linear smooths the steps
+  const tick = setInterval(() => { if (cur && !dragging) paintProgress(); }, 250);
+
   /** @type {EventSource | null} */
   let es = null;
   try {
@@ -103,5 +222,5 @@ export function createNowPlaying(opts = {}) {
     es.onerror = () => { /* browser retries automatically */ };
   } catch { /* EventSource unavailable */ }
 
-  return { wrap, render, close: () => es && es.close() };
+  return { wrap, render, close: () => { clearInterval(tick); es && es.close(); } };
 }

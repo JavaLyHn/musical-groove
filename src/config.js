@@ -33,7 +33,7 @@ export const CONFIG = {
     centerPeak: 1.5,         // small STATIC core mound so the centre is always anchored
     falloff: 26.0,           // shaping of that small static core mound
     baseHeight: 2.0,         // low floor; quiet/edge columns sit here
-    reactive: 19.0,          // height gain on the (already-normalized) audio drive
+    reactive: 23.0,          // height gain on the (already-normalized) audio drive — bumped for punch
     ampPow: 1.8,             // drive^1.8 -> transients spike into thin tall towers
     bandScatter: 0.28,       // per-column band scatter -> granular, neighbours move independently
     jitter: 1.2,             // a little STATIC per-column height for texture
@@ -76,15 +76,15 @@ export const CONFIG = {
     bandDecFast: 0.85,  // high-band decay per 60fps: fast fall (sparkle)
     // persistent TRAVELING WAVE: a directional sweep always flowing over the field
     // (wind), even between beats. Direction rotates slowly; amplitude swells with mids.
-    waveAmp: 2.0,       // height of the wind undulation
+    waveAmp: 2.6,       // height of the wind undulation
     waveFreq: 0.03,     // spatial frequency across the field (~2 crests over the diameter)
     waveSpeed: 1.2,     // how fast the crests travel
     waveRot: 0.04,      // how fast the wind direction rotates (rad/s — full turn ~2.6min)
     // sparse hard ACCENTS: on each transient a few random columns punch to max + flash,
     // then fall in a few frames — sparks on a calm base (the other half of the energy).
-    accentHeight: 9.0,  // how tall an accent punches
+    accentHeight: 12.0, // how tall an accent punches (bumped for stronger 震动感)
     accentDecay: 7.0,   // accent fall-off (e^-age*decay): ~0.15s flash
-    accentThresh: 0.93, // sparsity: columns with hash >= this spike (~7% per transient)
+    accentThresh: 0.90, // sparsity: columns with hash >= this spike (~10% per transient)
     // IDLE standby wave: don't hard-cut a floor — fade an autonomous soft wave IN only
     // after sustained silence (debounce), and OUT when music returns (transition). This
     // keeps standby from fighting the music and cures the quiet-section collapse/flicker.
@@ -165,10 +165,12 @@ export const CONFIG = {
   // Aligned with the reference: low oblique view (pitch 25), azimuth 120, slow auto-spin
   // (orbitSpeed ~0.2 rad/s). distance/fov stay tuned for OUR world scale (~10x the
   // reference — its 85 would bury the camera inside our field); dial them live with ?gui.
-  camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0 },
+  // beatKick: a per-kick camera PUNCH (quick zoom-in + a short vibration that decays) — the
+  // main "震动感" lever. 0 = off, ~0.7 = lively, >1 = aggressive. Tunable live in ?gui.
+  camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0, beatKick: 0.8 },
   post: {
     bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.80,
-    vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.06,
+    vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.16, // bloomSpike = beat flash punch
     // single adjustable ACCENT colour washed over the bloom (the cool/tech glow). Set
     // accentIntensity 0 to disable; swap accentColor to shift the whole mood blue<->warm.
     accentColor: '#5FD0E0', accentIntensity: 0.0,

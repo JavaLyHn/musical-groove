@@ -23,13 +23,18 @@ export function createCameraRig(camera, scene) {
     orbitSpeed: c.orbitSpeed ?? 0, // rad/s of slow auto-spin (0 = static)
   };
 
+  let kickE = 0; // beat-kick energy (decays each frame); drives a zoom + vibration punch
+  let kt = 0;    // phase clock for the vibration (reset on each fresh kick so it starts clean)
+
   function apply() {
     const pitch = (s.pitchDeg * Math.PI) / 180;
     const az = (s.azimuthDeg * Math.PI) / 180; // off-axis a few degrees so the centre grout line isn't viewed edge-on
+    const k = kickE * (CONFIG.camera.beatKick || 0); // 0 = no shake
     const horiz = s.distance * Math.cos(pitch);
-    camera.fov = s.fov;
+    camera.fov = s.fov * (1 - 0.05 * k);             // zoom-PUNCH inward on the beat
     camera.updateProjectionMatrix();
-    camera.position.set(horiz * Math.sin(az), s.targetY + s.distance * Math.sin(pitch), horiz * Math.cos(az));
+    const shake = k * 2.6 * Math.sin(kt * 34);       // short vertical vibration -> the "震动" thump
+    camera.position.set(horiz * Math.sin(az), s.targetY + s.distance * Math.sin(pitch) + shake, horiz * Math.cos(az));
     camera.lookAt(0, s.targetY, 0);
     if (scene && scene.fog) {
       scene.fog.near = s.distance * 0.92; // just in front of the core stays sharp
@@ -78,7 +83,16 @@ export function createCameraRig(camera, scene) {
   /** @param {number} dt */
   function update(dt) {
     if (s.orbitSpeed) s.azimuthDeg += s.orbitSpeed * dt * (180 / Math.PI);
+    kt += dt;
+    kickE *= Math.max(0, 1 - 11 * dt); // fast decay -> a ~0.1s punch, not a sustained wobble
+    if (kickE < 0.001) kickE = 0;
     apply();
   }
-  return { update, apply, state: s };
+  /** Punch the camera on a detected beat. @param {number} amt kick strength (~0..1.3) */
+  function kick(amt) {
+    if (!(amt > 0)) return;
+    if (kickE < 0.05) kt = 0; // fresh punch -> start the vibration from phase 0 (no snap)
+    kickE = Math.min(1.2, kickE + amt);
+  }
+  return { update, apply, kick, state: s };
 }

@@ -54,6 +54,7 @@ const lyrics = createLyrics();
 const nowPlaying = createNowPlaying({
   onColor: (rgb) => field.setCoverColor(rgb),
   onTrack: (t) => lyrics.setTrack(t),
+  onSeek: (sec) => { fetch('/__seek?pos=' + sec.toFixed(2)).catch(() => {}); },
 });
 
 const core = createCore();
@@ -142,6 +143,7 @@ function frame() {
   stars.update(dt);
   sparks.update(onset, dt);
   lyrics.update(level, onset, dt);
+  if (beat.kick) rig.kick(beat.kick); // beat-driven camera punch (震动感)
   rig.update(dt);
   updateFx(dt, levels.bass);
   composer.render();
