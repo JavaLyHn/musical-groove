@@ -76,7 +76,7 @@ const FinalShader = {
       float _lum = dot(col, vec3(0.299, 0.587, 0.114));
       col = mix(col, col * mix(vec3(1.0), uAccentColor * 1.6, clamp(_lum, 0.0, 1.0)), uAccentIntensity);
       float v = smoothstep(0.9, 0.35, length(d) * uStrength);    // vignette
-      col *= mix(0.5, 1.0, v);
+      col *= mix(0.46, 1.0, v);                                  // a touch deeper -> more cinematic framing
       col += (hash(vUv * uResolution + uTime) - 0.5) * uGrain;    // animated film grain
       col += (hash(vUv * uResolution * 0.5 + 19.0) - 0.5) / 255.0; // dither (anti-band)
       // author watermark — composited into the image itself (not a removable DOM node)

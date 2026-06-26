@@ -168,6 +168,7 @@ export function createGui({ rig, renderer }) {
   fp.add(CONFIG.post, 'accentIntensity', 0, 1, 0.02).name('强调色强度');
   fp.add(CONFIG.post, 'bloomThreshold', 0, 1, 0.01).name('Bloom 阈值');
   fp.add(renderer, 'toneMappingExposure', 0.2, 2, 0.05).name('曝光 exposure');
+  fp.add(CONFIG.field, 'coreHeat', 0, 2, 0.05).name('热核强度 (中心烧热)');
 
   // Reset everything to the values captured when the panel was built (= the config
   // defaults), via lil-gui's recursive reset.

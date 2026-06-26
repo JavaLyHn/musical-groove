@@ -21,7 +21,7 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.maxPixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.85; // compress highlights so loud peaks don't clip flat to white
+  renderer.toneMappingExposure = 0.80; // ACES + a slightly lower exposure: loud peaks keep their column shape instead of clipping flat to white
   return renderer;
 }
 

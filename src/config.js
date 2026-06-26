@@ -23,6 +23,8 @@ export const CONFIG = {
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
     deep: '#060A1C',         // cool deep-space color the far cubes recede into (darker + bluer than bg)
+    hot: '#DCEBFF',          // cool white-hot for peak flashes/ripples/accents — keeps loud moments
+                             //   inside the blue family (no raw white blow-out) while preserving column shape
   },
 
   field: {
@@ -47,6 +49,8 @@ export const CONFIG = {
     heightScale: 1.8,        // master multiplier on the GPU audio elevation (per-band motifs)
     whiteElev: 13.0,         // elevation for full white-hot (high -> field sinks dark, only tall peaks burn)
     coreBoost: 1.6,          // emissive radial weight: centre x1.6, edge x1.0 -> a hot core floats out
+    coreHeat: 0.7,           // bass-driven hot NUCLEUS: the low end burns the centre (fades to the rim) so
+                             //   a focal white-hot core floats out instead of the whole field flashing flat
     emissiveGain: 0.6,       // overall emissive exposure cut (dark field; ripples bypass it)
     brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
@@ -133,6 +137,10 @@ export const CONFIG = {
     rise: 6.0, spread: 11.0, spawnR: 38, spawnYmin: 5, spawnYmax: 17,
     meteorTrail: 16, meteorSpeed: 72,
   },
+  // ambient MOTES: a sparse, slow-drifting dust of faint COOL points floating over the dark
+  // field — "能量在场" without clutter. Reserved from the head of the spark pool (the first
+  // `count` points), so they coexist with the rare meteor streaks. Kept few + dim + slow.
+  motes: { count: 42, rise: 1.3, sway: 0.5, brightness: 0.2, spawnR: 115, yMin: 3, yMax: 42 },
 
   // spectral-flux beat detection (adaptive threshold). Fed the RAW spectrum.
   // kick = low band -> radial ring + ember burst; hat = high band -> light sprinkle.
@@ -169,7 +177,7 @@ export const CONFIG = {
   // main "震动感" lever. 0 = off, ~0.7 = lively, >1 = aggressive. Tunable live in ?gui.
   camera: { fov: 35, pitchDeg: 25, distance: 190, targetY: 7, azimuthDeg: 120, orbitSpeed: 0.2, bob: 0, beatKick: 0.8 },
   post: {
-    bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.80,
+    bloomStrength: 0.13, bloomRadius: 0.55, bloomThreshold: 0.85, // higher -> only the very brightest pillar tops bloom
     vignette: 1.2, aberration: 0.003, grain: 0.028, bloomSpike: 0.16, // bloomSpike = beat flash punch
     // single adjustable ACCENT colour washed over the bloom (the cool/tech glow). Set
     // accentIntensity 0 to disable; swap accentColor to shift the whole mood blue<->warm.

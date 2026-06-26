@@ -24,7 +24,9 @@ function makeSparkTexture() {
 // just darkening the per-point colour toward black (an unseen point = black).
 export function createSparks() {
   const cfg = CONFIG.sparks;
+  const mo = CONFIG.motes;
   const N = cfg.count;
+  const M = Math.min(mo.count, N); // the first M points are persistent ambient motes; meteors use [M, N)
   const positions = new Float32Array(N * 3);
   const colors = new Float32Array(N * 3);           // additive -> 0,0,0 = invisible
   const vel = new Float32Array(N * 3);
@@ -46,7 +48,25 @@ export function createSparks() {
   const points = new THREE.Points(geo, mat);
   points.frustumCulled = false;
 
-  let cursor = 0;
+  // ambient MOTES: seed the first M points as a slow cool dust. They never die — they drift
+  // up + sway, twinkle, and respawn low once they pass the ceiling. Sparse, dim, restrained.
+  const moPhase = new Float32Array(M);
+  /** @param {number} i @param {boolean} low  start near the floor (respawn) vs anywhere (initial scatter) */
+  function seedMote(i, low) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * mo.spawnR;     // sqrt -> uniform over the disc
+    positions[i * 3] = Math.cos(ang) * rad;
+    positions[i * 3 + 1] = low ? mo.yMin + Math.random() * 4 : mo.yMin + Math.random() * (mo.yMax - mo.yMin);
+    positions[i * 3 + 2] = Math.sin(ang) * rad;
+    vel[i * 3] = (Math.random() - 0.5) * mo.sway;
+    vel[i * 3 + 1] = mo.rise * (0.6 + 0.6 * Math.random());
+    vel[i * 3 + 2] = (Math.random() - 0.5) * mo.sway;
+    moPhase[i] = Math.random() * 6.283;
+  }
+  for (let i = 0; i < M; i++) seedMote(i, false);
+  let moClock = 0;
+
+  let cursor = M; // meteor write cursor, confined to [M, N)
   // Launch a meteor: a streak of points sharing ONE velocity (so it moves rigidly),
   // started high near the rim and arcing across + down. The tail is staggered "older"
   // (dimmer) and the head skips the ember pop-in so it reads bright immediately.
@@ -63,7 +83,7 @@ export function createSparks() {
     const vy = -cfg.meteorSpeed * 0.35;     // arc downward
     for (let k = 0; k < cfg.meteorTrail; k++) {
       const i = cursor;
-      cursor = (cursor + 1) % N;
+      cursor = cursor + 1 >= N ? M : cursor + 1; // wrap within the meteor region [M, N)
       const back = k / cfg.meteorTrail;      // 0 = head, ~1 = tail
       positions[i * 3] = sx - vx * back * 0.05;     // tail trails behind the head along -v
       positions[i * 3 + 1] = sy - vy * back * 0.05;
@@ -78,11 +98,23 @@ export function createSparks() {
 
   const meteorTrigger = createTrigger(CONFIG.meteor);
   function update(onset, dt) {
+    // ambient motes: slow drifting cool dust, gently twinkling — "energy in the space".
+    moClock += dt;
+    for (let i = 0; i < M; i++) {
+      positions[i * 3] += vel[i * 3] * dt;
+      positions[i * 3 + 1] += vel[i * 3 + 1] * dt;
+      positions[i * 3 + 2] += vel[i * 3 + 2] * dt;
+      if (positions[i * 3 + 1] > mo.yMax) seedMote(i, true); // rose past the ceiling -> respawn low
+      const tw = 0.45 + 0.55 * Math.sin(moClock * 0.9 + moPhase[i]); // slow breathe
+      const b = mo.brightness * tw;
+      colors[i * 3] = b * 0.78; colors[i * 3 + 1] = b * 0.9; colors[i * 3 + 2] = b * 1.0; // cool white
+    }
+
     // rare, ceremonial meteors only: the big-onset trigger carries a long cooldown,
     // so it's the occasional shooting star — not a constant spark cloud.
     if (meteorTrigger.fire(onset) > 0) spawnMeteor();
 
-    for (let i = 0; i < N; i++) {
+    for (let i = M; i < N; i++) {
       if (age[i] >= life[i]) {                     // dead -> invisible
         colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = 0;
         continue;

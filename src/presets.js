@@ -43,6 +43,7 @@ function targets(refs) {
     ['wave.idleSpeed', C.wave, 'idleSpeed'],
     ['camera.beatKick', C.camera, 'beatKick'],
     ['post.bloomSpike', C.post, 'bloomSpike'],
+    ['field.coreHeat', C.field, 'coreHeat'],
     ['camera.pitchDeg', st, 'pitchDeg'],
     ['camera.distance', st, 'distance'],
     ['camera.fov', st, 'fov'],

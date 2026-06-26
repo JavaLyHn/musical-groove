@@ -79,6 +79,7 @@ export function createPillarField() {
       uRippleSpeed: { value: w.speed }, uRippleWidth: { value: w.width }, uRippleFade: { value: w.decay },
       uWhiteElev: { value: f.whiteElev }, uBrightFloor: { value: f.brightFloor }, uRadialDim: { value: f.radialDim },
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
+      uCoreHeat: { value: f.coreHeat }, uHotColor: { value: new THREE.Color(CONFIG.colors.hot) },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uSegmented: { value: f.segmented === false ? 0 : 1 }, // 1 = segmented blocks, 0 = smooth bar
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
@@ -252,6 +253,7 @@ export function createPillarField() {
     U.uLevelFloor.value = m.levelFloor;
     U.uWaveAmp.value = m.waveAmp;
     U.uIdleHeight.value = m.idleHeight;
+    U.uCoreHeat.value = f.coreHeat;
     U.uSegmented.value = f.segmented === false ? 0 : 1;
     U.uWarmth.value = timbre.warmth; U.uBrightness.value = timbre.brightness; U.uSharpness.value = timbre.sharpness;
     U.uSubBass.value = bandEnv[0]; U.uBass.value = bandEnv[1]; U.uLowMid.value = bandEnv[2]; U.uMid.value = bandEnv[3];
@@ -412,6 +414,8 @@ uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, 
 uniform vec3 uRamp[5];
 uniform vec3 uRampWarm[5];
 uniform vec3 uRippleColor;
+uniform vec3 uHotColor;
+uniform float uCoreHeat;
 uniform vec3 uCoverTint;
 uniform float uCoverTintAmt;
 varying float vElev, vRing, vRnd, vYNorm, vSegY, vRippleN, vRippleW, vAccent;
@@ -451,31 +455,44 @@ vec3 _emis = paletteColor(_b) * _segMask;
 _emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
 _emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus
 _emis *= uEmissiveGain * (0.45 + 0.55 * uLevel); // exposure cut + loud->bright / quiet->dark
+
+// soft hot NUCLEUS: the low end burns the CENTRE and fades to the rim, so on a beat a focal
+// white-hot core floats out (centre hot -> cooler/darker edges) instead of the whole field
+// flashing flat. Gated by the column's own height (_b) so the dark floor stays dark.
+float _coreR = 1.0 - vRing;
+float _nucleus = _coreR * _coreR * (uSubBass * 0.62 + uBass * 0.38) * uCoreHeat;
+_emis += uHotColor * _nucleus * (0.25 + 0.75 * _b);
+
+// top highlight — ONLY risen/active columns get a hot cap; calm short columns keep dim tops,
+// so the field isn't a sea of uniform cyan tips ("满场均匀闪").
 float _top = smoothstep(0.80, 1.0, vYNorm);
-_emis += paletteColor(_b) * _top * 0.5 * _segMask * uEmissiveGain;
+float _topAct = smoothstep(0.32, 0.85, _hN);
+_emis += paletteColor(_b) * _top * 0.6 * _segMask * uEmissiveGain * _topAct;
 
 // --- surface micro-detail (upper part of pillars), driven by the high bands ---
+// gated by activity so a calm column barely twinkles (主次/对比更强)
 float _upper = smoothstep(0.65, 1.0, vYNorm);
-// air shimmer: sparse columns twinkle at their tops
-if (fract(vRnd * 31.0) > 0.93) _emis += vec3(0.6, 0.9, 1.0) * uAir * 2.2 * _upper;
-// presence/sharpness flickers: rare fast white flashes synced to time
+float _act = 0.18 + 0.82 * smoothstep(0.18, 0.7, _hN);
+// air shimmer: sparse active columns twinkle at their tops
+if (fract(vRnd * 31.0) > 0.93) _emis += vec3(0.6, 0.9, 1.0) * uAir * 2.2 * _upper * _act;
+// presence/sharpness flickers: rare fast cool-white flashes synced to time
 if (fract(vRnd * 53.0) > 0.985) {
   float _fl = 0.5 + 0.5 * sin(uTime * 40.0 + vRnd * 100.0);
-  _emis += vec3(1.0) * uPresence * (1.0 + uSharpness * 2.0) * _upper * _fl;
+  _emis += uHotColor * uPresence * (1.0 + uSharpness * 2.0) * _upper * _fl * _act;
 }
 // brilliance micro-sparks
-if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += vec3(1.0) * uBrilliance * 2.0 * _upper;
+if (fract(vRnd * 89.0 + uTime * 2.0) > 0.985) _emis += uHotColor * uBrilliance * 2.0 * _upper * _act;
 
-// soft knee (Reinhard) on the body emissive: compress the hot core's highlights so
-// the peak stays 'bright white-hot CUBES' (gaps/structure survive) instead of a flat
-// burned blob — the brighter a fragment, the more it's compressed.
+// soft knee (Reinhard) on the body emissive: compress the hot core's highlights so the peak
+// stays 'bright white-hot CUBES' (gaps/structure survive) instead of a flat burned blob —
+// slightly stronger now so the tallest peaks keep their shape + cool gradient.
 float _mx = max(_emis.r, max(_emis.g, _emis.b));
-_emis *= 1.0 / (1.0 + _mx * 0.5);
+_emis *= 1.0 / (1.0 + _mx * 0.62);
 
-// sparse accent flash: a sharp white pop that bypasses the exposure cut (spark on the field)
-_emis += vec3(1.0) * clamp(vAccent, 0.0, 1.2) * 0.9;
+// sparse accent flash: a sharp COOL-white pop that bypasses the exposure cut (spark on the field)
+_emis += uHotColor * clamp(vAccent, 0.0, 1.2) * 0.82;
 
 // ripple overrides bypass the exposure cut so the beat ring/pop pops on the dark field
 _emis = mix(_emis, uRippleColor, clamp(vRippleN, 0.0, 1.0));
-_emis = mix(_emis, vec3(1.0), clamp(vRippleW, 0.0, 1.0));
+_emis = mix(_emis, uHotColor, clamp(vRippleW, 0.0, 1.0));
 totalEmissiveRadiance = _emis;`;

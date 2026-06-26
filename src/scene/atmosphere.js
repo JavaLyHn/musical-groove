@@ -25,7 +25,7 @@ export function createAtmosphere() {
     map: haloTexture('#3f63c8'),       // cool blue atmosphere
     color: 0xffffff,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.62,                     // a touch stronger horizon glow for depth
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
