@@ -76,18 +76,12 @@ function injectTheme() {
     /* version presets — pinned under the title so the saved-version controls never scroll away */
     .lil-gui.lyhn-gui .lyhn-presets{ flex:0 0 auto; display:flex; flex-direction:column; gap:7px;
       padding:10px; border-bottom:1px solid rgba(150,175,240,0.16); background:rgba(95,208,224,0.045); }
-    .lil-gui.lyhn-gui .lyhn-presets .save-row{ display:flex; gap:6px; }
-    .lil-gui.lyhn-gui .lyhn-presets input{ flex:1 1 auto; min-width:0; height:26px; box-sizing:border-box;
-      font:600 11px/1 inherit; color:#eaf0ff; padding:0 9px; border-radius:7px;
-      background:rgba(120,170,235,0.14); border:1px solid rgba(150,175,240,0.26); outline:none; transition:border-color .15s ease, background .15s ease; }
-    .lil-gui.lyhn-gui .lyhn-presets input:focus{ border-color:rgba(95,208,224,0.55); background:rgba(120,170,235,0.20); }
-    .lil-gui.lyhn-gui .lyhn-presets input::placeholder{ color:#8fa0d0; }
-    .lil-gui.lyhn-gui .lyhn-presets .save{ flex:0 0 auto; height:26px; padding:0 15px; cursor:pointer;
-      font:700 11px/1 inherit; letter-spacing:.08em; color:#0a1226; border:none; border-radius:7px;
+    .lil-gui.lyhn-gui .lyhn-presets .save{ width:100%; height:30px; cursor:pointer;
+      font:700 11px/1 inherit; letter-spacing:.06em; color:#0a1226; border:none; border-radius:8px;
       background:linear-gradient(120deg,#5FD0E0,#9A8FE6); transition:filter .2s ease, transform .1s ease; }
     .lil-gui.lyhn-gui .lyhn-presets .save:hover{ filter:brightness(1.1); }
-    .lil-gui.lyhn-gui .lyhn-presets .save:active{ transform:scale(0.97); }
-    .lil-gui.lyhn-gui .lyhn-presets .plist{ display:flex; flex-direction:column; gap:4px; max-height:152px; overflow-y:auto; }
+    .lil-gui.lyhn-gui .lyhn-presets .save:active{ transform:scale(0.99); }
+    .lil-gui.lyhn-gui .lyhn-presets .plist{ display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto; }
     .lil-gui.lyhn-gui .lyhn-presets .plist::-webkit-scrollbar{ width:5px; }
     .lil-gui.lyhn-gui .lyhn-presets .plist::-webkit-scrollbar-thumb{ background:rgba(120,170,235,0.30); border-radius:3px; }
     .lil-gui.lyhn-gui .lyhn-presets .prow{ display:flex; gap:5px; align-items:stretch; }
@@ -98,9 +92,16 @@ function injectTheme() {
     .lil-gui.lyhn-gui .lyhn-presets .pload:hover{ background:rgba(95,208,224,0.20); }
     .lil-gui.lyhn-gui .lyhn-presets .prow.active .pload{ background:rgba(95,208,224,0.22); border-color:rgba(95,208,224,0.5); color:#eaf6ff; }
     .lil-gui.lyhn-gui .lyhn-presets .prow.active .pload::before{ content:'✓ '; color:#86e6f4; }
-    .lil-gui.lyhn-gui .lyhn-presets .pdel{ flex:0 0 auto; width:26px; height:26px; cursor:pointer; font:600 14px/1 inherit;
-      color:#e79ab0; border-radius:6px; background:rgba(224,95,128,0.10); border:1px solid rgba(224,95,128,0.28); transition:background .15s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets .pedit,
+    .lil-gui.lyhn-gui .lyhn-presets .pdel{ flex:0 0 auto; width:26px; height:26px; cursor:pointer;
+      font:600 12px/1 inherit; border-radius:6px; transition:background .15s ease; }
+    .lil-gui.lyhn-gui .lyhn-presets .pedit{ color:#bfeaf2; background:rgba(95,208,224,0.10); border:1px solid rgba(95,208,224,0.28); }
+    .lil-gui.lyhn-gui .lyhn-presets .pedit:hover{ background:rgba(95,208,224,0.24); }
+    .lil-gui.lyhn-gui .lyhn-presets .pdel{ color:#e79ab0; background:rgba(224,95,128,0.10); border:1px solid rgba(224,95,128,0.28); font-size:14px; }
     .lil-gui.lyhn-gui .lyhn-presets .pdel:hover{ background:rgba(224,95,128,0.24); color:#ffd0dc; }
+    .lil-gui.lyhn-gui .lyhn-presets .prename{ flex:1 1 auto; min-width:0; height:26px; box-sizing:border-box; outline:none;
+      font:600 11px/1 inherit; color:#eaf0ff !important; padding:0 9px; border-radius:6px;
+      background:rgba(120,170,235,0.20) !important; border:1px solid rgba(95,208,224,0.55) !important; }
     .lil-gui.lyhn-gui .lyhn-presets .empty{ font-size:10.5px; color:#8290bd; text-align:center; padding:5px 0; }
     .lil-gui.lyhn-gui .lyhn-presets .msg{ min-height:13px; font-size:10.5px; letter-spacing:.04em; color:#86e6f4; text-align:center; }`;
   document.head.appendChild(s);
@@ -170,11 +171,10 @@ export function createGui({ rig, renderer }) {
   return gui;
 }
 
-// VERSION PRESETS bar (pinned under the title). Save the current settings under a name and
-// recall them. Storage + (de)serialization live in presets.js (lil-gui-free) so the last
-// version also auto-applies at page load — see main.js. Here we just drive the UI and push
-// restored values into the sliders. Saved versions are a clean clickable list (no native
-// <select>); each row loads on click, with a × to delete and a ✓ on the active one.
+// VERSION PRESETS bar (pinned under the title). One-click "save as new version" — no bare
+// name box sitting there. Each saved version is a row: click it to load, ✎ to rename inline,
+// × to delete, ✓ marks the active one. Storage + (de)serialization live in presets.js
+// (lil-gui-free) so the last version also auto-applies at page load — see main.js.
 /** @param {import('lil-gui').GUI} gui @param {{ rig:{state:any}, renderer:any }} refs */
 function setupPresets(gui, refs) {
   let presets = getPresets();
@@ -183,21 +183,36 @@ function setupPresets(gui, refs) {
   const bar = document.createElement('div');
   bar.className = 'lyhn-presets';
   bar.innerHTML =
-    '<div class="save-row"><input class="name" type="text" maxlength="24" placeholder="为当前设置起个名…"/>' +
-    '<button class="save">保存</button></div>' +
+    '<button class="save">＋ 保存当前为新版本</button>' +
     '<div class="plist"></div>' +
     '<div class="msg"></div>';
-  const nameInput = /** @type {HTMLInputElement} */ (bar.querySelector('.name'));
   const saveBtn = /** @type {HTMLButtonElement} */ (bar.querySelector('.save'));
   const list = /** @type {HTMLDivElement} */ (bar.querySelector('.plist'));
   const msgEl = /** @type {HTMLDivElement} */ (bar.querySelector('.msg'));
 
   let msgTimer = 0;
   /** @param {string} t */
-  const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2200); };
+  const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2400); };
 
   // push restored CONFIG / camera / renderer values into the panel's sliders
   const refreshDisplays = () => { for (const c of gui.controllersRecursive()) c.updateDisplay(); };
+
+  /** @param {string} n */
+  function makeRow(n) {
+    const row = document.createElement('div');
+    row.className = 'prow' + (n === active ? ' active' : '');
+    const load = document.createElement('button');
+    load.className = 'pload'; load.textContent = n; load.title = '载入「' + n + '」';
+    load.addEventListener('click', () => doLoad(n));
+    const edit = document.createElement('button');
+    edit.className = 'pedit'; edit.textContent = '✎'; edit.title = '重命名';
+    edit.addEventListener('click', (ev) => { ev.stopPropagation(); beginRename(row, n); });
+    const del = document.createElement('button');
+    del.className = 'pdel'; del.textContent = '×'; del.title = '删除「' + n + '」';
+    del.addEventListener('click', (ev) => { ev.stopPropagation(); doDelete(n); });
+    row.append(load, edit, del);
+    return row;
+  }
 
   function renderList() {
     list.innerHTML = '';
@@ -208,29 +223,46 @@ function setupPresets(gui, refs) {
       list.appendChild(e);
       return;
     }
-    for (const n of names) {
-      const row = document.createElement('div');
-      row.className = 'prow' + (n === active ? ' active' : '');
-      const load = document.createElement('button');
-      load.className = 'pload'; load.textContent = n; load.title = '载入「' + n + '」';
-      load.addEventListener('click', () => doLoad(n));
-      const del = document.createElement('button');
-      del.className = 'pdel'; del.textContent = '×'; del.title = '删除「' + n + '」';
-      del.addEventListener('click', (ev) => { ev.stopPropagation(); doDelete(n); });
-      row.append(load, del);
-      list.appendChild(row);
-    }
+    for (const n of names) list.appendChild(makeRow(n));
   }
 
   function doSave() {
-    let name = nameInput.value.trim() || active; // empty name -> overwrite the active version
-    if (!name) { let i = 1; while (presets['版本 ' + i]) i++; name = '版本 ' + i; } // else auto-number
+    let i = 1; while (presets['版本 ' + i]) i++;
+    const name = '版本 ' + i;
     presets[name] = snapshot(refs);
     setPresets(presets);
     active = name; setLast(name);
-    nameInput.value = '';
     renderList();
-    flash('✓ 已保存「' + name + '」');
+    flash('✓ 已保存「' + name + '」 — 点 ✎ 可改名');
+  }
+
+  /** Inline-rename a row: swap the name button for an input. @param {HTMLDivElement} row @param {string} oldName */
+  function beginRename(row, oldName) {
+    const inp = document.createElement('input');
+    inp.className = 'prename'; inp.type = 'text'; inp.maxLength = 24; inp.value = oldName;
+    row.replaceChildren(inp);
+    inp.focus(); inp.select();
+    let done = false;
+    const commit = () => {
+      if (done) return; done = true;
+      const nn = inp.value.trim();
+      if (nn && nn === oldName) { /* unchanged */ }
+      else if (nn && presets[nn]) flash('已存在同名版本');
+      else if (nn) {
+        /** @type {Record<string, any>} */
+        const rebuilt = {}; // keep order, swap the key
+        for (const k of Object.keys(presets)) rebuilt[k === oldName ? nn : k] = presets[k];
+        presets = rebuilt; setPresets(presets);
+        if (active === oldName) { active = nn; setLast(nn); }
+        flash('已重命名为「' + nn + '」');
+      }
+      renderList();
+    };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { done = true; renderList(); }
+    });
+    inp.addEventListener('blur', commit);
   }
 
   /** @param {string} n */
@@ -253,7 +285,6 @@ function setupPresets(gui, refs) {
   }
 
   saveBtn.addEventListener('click', doSave);
-  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
 
   renderList();
   // pin the bar directly under the title, above the scrolling folder list
