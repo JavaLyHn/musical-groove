@@ -26,27 +26,32 @@ export function createNowPlaying(opts = {}) {
   const style = document.createElement('style');
   style.textContent = `
     .np{position:fixed;top:16px;left:50%;z-index:9;box-sizing:border-box;
-      transform:translateX(-50%) translateY(-12px);opacity:0;pointer-events:auto;cursor:pointer;
+      transform:translateX(-50%) translateY(-12px) translateZ(0);opacity:0;pointer-events:auto;cursor:pointer;
       width:248px;height:46px;padding:8px;border-radius:23px;overflow:hidden;
       display:flex;flex-direction:column;
       background:rgba(12,18,40,.46);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
       box-shadow:0 6px 28px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);
       border:1px solid rgba(150,175,240,.16);
       font-family:-apple-system,"PingFang SC",system-ui,sans-serif;
+      /* promote to a dedicated GPU layer so the per-frame repaint + glass re-blur during the
+         morph stays isolated to the card (not re-composited against the WebGL canvas behind it),
+         and pre-allocate a backing store for the animated size — this is what kills the stutter. */
+      will-change:width,height,border-radius,transform;contain:layout paint;
+      backface-visibility:hidden;-webkit-backface-visibility:hidden;
       /* the silky morph — iOS-style ease, size + radius together */
       transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1),
         border-radius .52s cubic-bezier(.32,.72,0,1), opacity .5s ease, transform .5s ease;}
-    .np.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .np.show{opacity:1;transform:translateX(-50%) translateY(0) translateZ(0)}
     .np.expanded{width:380px;height:228px;border-radius:26px;padding:14px;cursor:default}
 
     .np-main{display:flex;align-items:center;gap:11px;flex:0 0 auto;min-height:0}
     .np.expanded .np-main{align-items:flex-start}
     .np-cover{flex:0 0 auto;width:30px;height:30px;border-radius:7px;object-fit:cover;display:none;
-      box-shadow:0 2px 10px rgba(0,0,0,.5);
+      box-shadow:0 2px 10px rgba(0,0,0,.5);will-change:width,height;
       transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1), border-radius .52s cubic-bezier(.32,.72,0,1)}
     .np.expanded .np-cover{width:100px;height:100px;border-radius:14px}
     .np-glyph{flex:0 0 auto;width:30px;height:30px;border-radius:7px;display:none;align-items:center;justify-content:center;
-      color:#aeb6e6;font-size:15px;background:rgba(120,170,235,.14);
+      color:#aeb6e6;font-size:15px;background:rgba(120,170,235,.14);will-change:width,height;
       transition:width .52s cubic-bezier(.32,.72,0,1), height .52s cubic-bezier(.32,.72,0,1)}
     .np.expanded .np-glyph{width:100px;height:100px;border-radius:14px;font-size:42px}
 
