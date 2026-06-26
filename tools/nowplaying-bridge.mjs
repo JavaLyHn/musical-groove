@@ -194,13 +194,21 @@ function cleanTitle(t) {
 }
 const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
 
-// NetEase: first search hit that has ORIGINAL synced lyrics. We read only `lrc.lyric` (the
-// original) — never `tlyric` (the translation) — and never judge by artist. If a song with
-// synced lyrics turns up, we return it verbatim.
-async function neLyric(query) {
+// NetEase: a search hit with ORIGINAL synced lyrics. We read only `lrc.lyric` (the original)
+// — never `tlyric` (translation) — and never judge by artist. To stay in SYNC with what's
+// actually playing, when we know the track length we PREFER the hit whose recording length
+// matches (±3s) — so a cover/remix gets ITS OWN timing-correct lyrics, not the original's
+// (whose tempo differs). If none matches the length, we still return the first synced hit.
+async function neLyric(query, wantDur = 0) {
   const s = new URLSearchParams({ s: query, type: '1', limit: '10' });
   const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
-  const songs = (sr && sr.result && sr.result.songs) || [];
+  let songs = ((sr && sr.result && sr.result.songs) || []).slice(0, 10);
+  if (wantDur > 0) {
+    songs = songs
+      .map((sg, i) => ({ sg, i, near: sg.duration ? Math.abs(sg.duration / 1000 - wantDur) <= 3 : false }))
+      .sort((a, b) => (a.near === b.near ? a.i - b.i : (a.near ? -1 : 1))) // length-matched first, else relevance
+      .map((x) => x.sg);
+  }
   for (const sg of songs.slice(0, 8)) {
     const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${sg.id}&lv=1&kv=0&tv=0`, { headers: NE_HEADERS });
     const lrc = ly && ly.lrc && ly.lrc.lyric; // original only, as-is
@@ -213,12 +221,18 @@ async function neLyric(query) {
 // as-is (lrclib has no translation field, so syncedLyrics is already the original).
 async function lrclibByTitle(title, artist, album, duration) {
   const params = new URLSearchParams({ artist_name: artist || '', track_name: title, album_name: album || '', duration: String(duration || 0) });
-  const d = await fetchJSON('https://lrclib.net/api/get?' + params);
+  const d = await fetchJSON('https://lrclib.net/api/get?' + params); // /get matches duration ±2s
   if (d && isSynced(d.syncedLyrics) && !d.instrumental) return d.syncedLyrics;
-  const arr = await fetchJSON('https://lrclib.net/api/search?' + new URLSearchParams({ track_name: title }));
-  if (Array.isArray(arr)) {
-    for (const x of arr.slice(0, 8)) if (x && isSynced(x.syncedLyrics) && !x.instrumental) return x.syncedLyrics;
+  let arr = await fetchJSON('https://lrclib.net/api/search?' + new URLSearchParams({ track_name: title }));
+  if (!Array.isArray(arr)) return null;
+  arr = arr.slice(0, 10);
+  if (duration > 0) { // prefer the entry whose length matches (sync), else search relevance
+    arr = arr
+      .map((x, i) => ({ x, i, near: x.duration ? Math.abs(x.duration - duration) <= 3 : false }))
+      .sort((a, b) => (a.near === b.near ? a.i - b.i : (a.near ? -1 : 1)))
+      .map((o) => o.x);
   }
+  for (const x of arr.slice(0, 8)) if (x && isSynced(x.syncedLyrics) && !x.instrumental) return x.syncedLyrics;
   return null;
 }
 
@@ -230,17 +244,20 @@ async function fetchLyrics(q) {
   const key = (q.title || '') + '|' + (q.artist || '');
   if (lyricsCache.has(key)) return lyricsCache.get(key);
   const title = q.title || '', artist = q.artist || '', ct = cleanTitle(title) || title;
+  const dur = Number(q.duration) || 0; // playing track length -> used to pick timing-matched lyrics
+  // raw title FIRST so a cover ("…(Cover X)") can find ITS OWN entry (matching timing);
+  // cleaned title is the fallback (finds the original) only if the raw turns up nothing.
   const titles = [...new Set([title, ct].filter(Boolean))];
   let synced = null;
   const tryNE = async () => {
     for (const tt of titles) {
-      if (artist) { synced = await neLyric((tt + ' ' + artist).trim()); if (synced) return true; }
-      synced = await neLyric(tt); if (synced) return true;
+      if (artist) { synced = await neLyric((tt + ' ' + artist).trim(), dur); if (synced) return true; }
+      synced = await neLyric(tt, dur); if (synced) return true;
     }
     return false;
   };
   const tryLrc = async () => {
-    for (const tt of titles) { synced = await lrclibByTitle(tt, artist, q.album, q.duration); if (synced) return true; }
+    for (const tt of titles) { synced = await lrclibByTitle(tt, artist, q.album, dur); if (synced) return true; }
     return false;
   };
   if (hasCJK(title) || hasCJK(artist)) { (await tryNE()) || (await tryLrc()); }
