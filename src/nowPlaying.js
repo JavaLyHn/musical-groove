@@ -186,12 +186,21 @@ export function createNowPlaying(opts = {}) {
   trackEl.addEventListener('pointerup', endDrag);
   trackEl.addEventListener('pointercancel', endDrag);
 
-  // click the pill / card to expand or collapse
-  wrap.addEventListener('click', () => {
-    if (!cur) return;
-    expanded = !expanded;
+  /** @param {boolean} v */
+  function setExpanded(v) {
+    expanded = v;
     wrap.classList.toggle('expanded', expanded);
+  }
+  // click the pill / card to expand or collapse
+  wrap.addEventListener('click', () => { if (cur) setExpanded(!expanded); });
+  // a click/drag on the seek bar must not bubble up and collapse the card
+  trackEl.addEventListener('click', (e) => e.stopPropagation());
+  // click anywhere OUTSIDE the card collapses it (so you don't have to click back inside)
+  document.addEventListener('click', (e) => {
+    if (expanded && !wrap.contains(/** @type {Node} */ (e.target))) setExpanded(false);
   });
+  // Esc also collapses
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && expanded) setExpanded(false); });
 
   // transport — prev (5) / toggle play-pause (2) / next (4). Stop propagation so the click
   // doesn't also collapse the card.
