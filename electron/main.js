@@ -6,6 +6,11 @@ import { createAppServer } from './server.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST = join(HERE, '..', 'dist');
 
+// The wallpaper auto-connects system audio with no user to click, so Web Audio must be
+// allowed to start without a gesture — otherwise the AudioContext stays suspended and the
+// analyser reads silence (pillars don't react).
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 /** @type {Awaited<ReturnType<typeof createAppServer>> | null} */
 let server = null;
 /** @type {BrowserWindow | null} */
@@ -26,12 +31,9 @@ async function createWindow() {
     frame: false, resizable: false, movable: false, fullscreenable: false,
     backgroundColor: '#0B1330',
     skipTaskbar: true,
-    webPreferences: { preload: join(HERE, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: join(HERE, 'preload.js'), contextIsolation: true, nodeIntegration: false, autoplayPolicy: 'no-user-gesture-required' },
   });
-  win.webContents.on('console-message', (event, level, message) => {
-    const text = (message !== undefined) ? message : (event && event.message);
-    if (text !== undefined) console.log('[renderer]', text);
-  });
+  win.webContents.on('console-message', (e) => { if (e && e.message) console.log('[renderer]', e.message); });
   // macOS: explicitly request mic access from the main process — the renderer's getUserMedia
   // alone often won't trigger the TCC prompt. Logs the status so we can diagnose.
   try {
