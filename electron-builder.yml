@@ -22,6 +22,7 @@ mac:
   target:
     - target: dmg
       arch: [arm64]
+  icon: assets/icon.icns
   identity: null            # v1: unsigned (ad-hoc); no Developer ID / notarization
   hardenedRuntime: false
   gatekeeperAssess: false
