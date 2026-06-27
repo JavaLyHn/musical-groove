@@ -164,7 +164,7 @@ function frame() {
   if (kickPunch < 0.002) kickPunch = 0;
   if (beat.kick > 0) kickPunch = Math.max(kickPunch, Math.min(1, 0.45 + beat.kick * 0.55));
   field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset, kickPunch);
-  core.update(levels.bass, dt);
+  core.update(levels.bass, dt, field.getIdleMix());
   stars.update(dt);
   sparks.update(onset, dt);
   lyrics.update(level, onset, dt);

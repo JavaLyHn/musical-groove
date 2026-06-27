@@ -14,9 +14,14 @@ export function createCore() {
   group.add(light);
 
   let pulse = 0; // decaying brightness boost from the bass
-  function update(bass, dt) {
+  let t = 0;     // internal clock for the standby breathing glow
+  /** @param {number} bass @param {number} dt @param {number} [idleMix] 0=music, 1=standby */
+  function update(bass, dt, idleMix = 0) {
+    t += dt;
     pulse = Math.max(pulse * (1 - 4 * dt), bass);
-    light.intensity = 0.8 + pulse * 2.0;
+    // STANDBY breathing: a very slow, faint glow so the dark core stays a living focal point.
+    const idleGlow = idleMix * (CONFIG.core.idleBreath ?? 0) * (0.5 + 0.5 * Math.sin(t * 0.32));
+    light.intensity = 0.8 + pulse * 2.0 + idleGlow;
   }
 
   return { group, update };
