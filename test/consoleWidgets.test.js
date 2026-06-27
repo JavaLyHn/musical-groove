@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from 'vitest';
-import { clampStep, valueToFrac, fracToValue, makeFmt, wheelStep } from '../src/console/widgets.js';
+import { clampStep, valueToFrac, fracToValue, makeFmt, wheelStep, wheelNext } from '../src/console/widgets.js';
 
 describe('widget math helpers', () => {
   it('clampStep clamps to range', () => {
@@ -30,5 +30,20 @@ describe('widget math helpers', () => {
   it('wheelStep is coarser with Shift', () => {
     expect(wheelStep(0, 60, false)).toBeCloseTo(1);   // (60-0)/60
     expect(wheelStep(0, 60, true)).toBeCloseTo(3);    // (60-0)/20
+  });
+  it('wheelNext moves a stepped control by >= one step in BOTH directions', () => {
+    // regression: 涟漪冷却帧 range 0..30 step 1 -> wheelStep 0.5; old code rounded a
+    // decrement back up so "scroll down" never moved. Down must actually decrease now.
+    expect(wheelNext(3, -1, 0, 30, 1, false)).toBe(2);  // down works
+    expect(wheelNext(3, 1, 0, 30, 1, false)).toBe(4);   // up works
+    expect(wheelNext(0, -1, 0, 30, 1, false)).toBe(0);  // clamped at floor
+    expect(wheelNext(30, 1, 0, 30, 1, false)).toBe(30); // clamped at ceiling
+  });
+  it('wheelNext respects larger steps and stays snapped', () => {
+    expect(wheelNext(190, -1, 40, 400, 5, false)).toBe(185); // distance step 5
+    expect(wheelNext(200, -1, 0, 600, 10, false)).toBe(190); // meteor cooldown step 10
+  });
+  it('wheelNext keeps a fine fractional move for continuous (no-step) controls', () => {
+    expect(wheelNext(2.6, -1, 0, 6, undefined, false)).toBeCloseTo(2.5); // waveAmp: 6/60 = 0.1
   });
 });

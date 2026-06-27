@@ -25,6 +25,19 @@ export function makeFmt(max, step) {
 }
 /** @param {number} min @param {number} max @param {boolean} coarse */
 export function wheelStep(min, max, coarse) { return (max - min) / (coarse ? 20 : 60); }
+/**
+ * Next value for ONE wheel tick. For a STEPPED control the move is at least one `step`:
+ * the raw wheelStep can be a fraction of `step` (e.g. range 30 / step 1 -> wheelStep 0.5),
+ * and clampStep's Math.round rounds a decrement straight back up (Math.round(N-0.5)===N),
+ * so "scroll down" would never move. Continuous controls keep the fine wheelStep feel.
+ * @param {number} cur @param {number} dir -1 = down, +1 = up
+ * @param {number} min @param {number} max @param {number|undefined} step @param {boolean} coarse
+ */
+export function wheelNext(cur, dir, min, max, step, coarse) {
+  const raw = wheelStep(min, max, coarse);
+  const delta = step ? Math.max(step, Math.round(raw / step) * step) : raw;
+  return clampStep(cur + dir * delta, min, max, step);
+}
 
 // ---- small DOM helper ----
 /** @param {string} tag @param {string} [cls] @param {string} [html] */
@@ -77,7 +90,7 @@ export function makeSlider(c, r) {
   track.addEventListener('wheel', (e) => {
     e.preventDefault();
     const cur = /** @type {number} */ (c.get(r));
-    render(cur + (e.deltaY < 0 ? 1 : -1) * wheelStep(min, max, e.shiftKey), true);
+    render(wheelNext(cur, e.deltaY < 0 ? 1 : -1, min, max, step, e.shiftKey), true);
     track.classList.add('drag'); clearTimeout(/** @type {any} */ (track)._wt);
     /** @type {any} */ (track)._wt = setTimeout(() => track.classList.remove('drag'), 260);
   }, { passive: false });
@@ -146,7 +159,7 @@ export function makeDial(c, r, getAccent) {
   dial.addEventListener('dblclick', () => { c.set(r, c.def ?? min); paint(false); });
   dial.addEventListener('wheel', (e) => {
     e.preventDefault();
-    commit(/** @type {number} */ (c.get(r)) + (e.deltaY < 0 ? 1 : -1) * wheelStep(min, max, e.shiftKey));
+    commit(wheelNext(/** @type {number} */ (c.get(r)), e.deltaY < 0 ? 1 : -1, min, max, c.step, e.shiftKey));
     clearTimeout(/** @type {any} */ (dial)._wt);
     /** @type {any} */ (dial)._wt = setTimeout(() => paint(false), 260);
   }, { passive: false });
