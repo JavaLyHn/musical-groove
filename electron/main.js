@@ -2,6 +2,7 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, nativeImage, screen
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { execSync } from 'node:child_process';
 import { createAppServer } from './server.js';
 
 const require = createRequire(import.meta.url);
@@ -19,6 +20,18 @@ function setNormalLevel(w) {
   catch (e) { console.log('[wallpaper] setNormalLevel failed:', e && e.message ? e.message : e); }
   w.setIgnoreMouseEvents(false);
   w.focus();
+}
+
+// Hide/show ALL macOS desktop icons & files (Finder "CreateDesktop"). The wallpaper starts with
+// them hidden for a clean canvas; the tray toggles it, and quitting restores them so the system
+// isn't left altered. Global Finder setting (affects the whole desktop), not app-local.
+let desktopIconsHidden = false;
+function setDesktopIconsHidden(hidden) {
+  desktopIconsHidden = hidden;
+  try {
+    execSync(`defaults write com.apple.finder CreateDesktop -bool ${hidden ? 'false' : 'true'}`);
+    execSync('killall Finder'); // relaunch Finder so the change takes effect now
+  } catch (e) { console.log('[desktop-icons] toggle failed:', e && e.message ? e.message : e); }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +78,8 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }) },
+    { label: '隐藏桌面图标', type: 'checkbox', checked: desktopIconsHidden,
+      click: () => { setDesktopIconsHidden(!desktopIconsHidden); buildTrayMenu(); } },
     { label: '退出 Musical Groove', click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
@@ -142,7 +157,7 @@ async function createWindow() {
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); } else {
-  app.whenReady().then(createWindow);
-  app.on('window-all-closed', () => { /* keep running (wallpaper); quit via tray in Task 6 */ });
-  app.on('before-quit', async () => { if (server) await server.close(); });
+  app.whenReady().then(() => { createWindow(); setDesktopIconsHidden(true); }); // clean canvas: hide desktop icons by default
+  app.on('window-all-closed', () => { /* keep running (wallpaper); quit via tray */ });
+  app.on('before-quit', async () => { setDesktopIconsHidden(false); if (server) await server.close(); }); // restore the desktop on exit
 }
