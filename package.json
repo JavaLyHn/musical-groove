@@ -3,15 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc -p jsconfig.json --noEmit",
-    "nowplaying:fix": "killall QuickLookUIService 2>/dev/null || true"
+    "nowplaying:fix": "killall QuickLookUIService 2>/dev/null || true",
+    "electron:dev": "npm run build && electron ."
   },
   "devDependencies": {
+    "electron": "^42.5.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",
     "vitest": "^2.1.0"
