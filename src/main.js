@@ -28,6 +28,7 @@ import { createComposer } from './scene/postfx.js';
 import { createNowPlaying } from './nowPlaying.js';
 import { createSignature } from './signature.js';
 import { createLyrics } from './lyrics.js';
+import { initElectronMode } from './electronMode.js';
 
 const canvas = document.getElementById('app');
 const renderer = createRenderer(canvas);
@@ -94,6 +95,10 @@ const _sig = createSignature({
   },
 });
 if (new URLSearchParams(location.search).has('gui')) _sig.click(); // auto-open with ?gui
+initElectronMode({
+  openPanel: () => { if (!_panelOpen) _sig.click(); },
+  closePanel: () => { if (_panelOpen) _sig.click(); },
+});
 
 // Swap the simulated source for real system audio. In Electron, use the
 // ScreenCaptureKit loopback (no BlackHole; speakers keep working). In a plain

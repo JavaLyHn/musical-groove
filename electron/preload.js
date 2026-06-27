@@ -1,3 +1,7 @@
-// Filled in Task 5. Kept minimal so the window can reference it now.
-const { contextBridge } = require('electron');
-contextBridge.exposeInMainWorld('__wallpaper__', { isElectron: true, mode: 'wallpaper' });
+const { contextBridge, ipcRenderer } = require('electron');
+contextBridge.exposeInMainWorld('__wallpaper__', {
+  isElectron: true,
+  onMode: (cb) => {
+    ipcRenderer.on('wallpaper:mode', (_e, mode) => { try { cb(mode); } catch { /* */ } });
+  },
+});
