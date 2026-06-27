@@ -23,31 +23,21 @@ export async function pickLoopbackDeviceId() {
   return match ? match.deviceId : undefined;
 }
 
-// Real audio source: captures an input device through a Web Audio AnalyserNode
-// (true FFT) and exposes the SAME interface as the simulated source
-// (getSpectrum / getLevels / update) so the visual layer is unchanged.
 /**
- * @param {{ deviceId?: string, bands?: number }} [opts]
- * @returns {Promise<import('./types.js').AudioSource>}
+ * Wrap a live MediaStream (mic/device OR system loopback) as the standard audio-source interface.
+ * Shared by createWebAudioSource and createSystemAudioSource to avoid duplicating the pipeline.
+ * @param {AudioContext} ctx
+ * @param {MediaStream} stream
+ * @param {string} label
+ * @returns {import('./types.js').AudioSource}
  */
-export async function createWebAudioSource(opts = {}) {
-  const bands = opts.bands || CONFIG.bands;
-  /** @type {MediaTrackConstraints} */
-  const audioConstraints = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-  if (opts.deviceId) audioConstraints.deviceId = { exact: opts.deviceId };
-
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
-
-  const Ctx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
-  const ctx = new Ctx();
-  if (ctx.state === 'suspended') await ctx.resume();
+function analyserSourceFromStream(ctx, stream, label) {
   const srcNode = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
-  analyser.fftSize = 512;                 // -> 256 frequency bins (the shaper mel-rebins to CONFIG.bands)
-  analyser.smoothingTimeConstant = 0.5;   // lower -> sharp transients: the kick reads "on the beat", not ~200ms late
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.5;
   srcNode.connect(analyser);
-
-  const binCount = analyser.frequencyBinCount; // 256
+  const binCount = analyser.frequencyBinCount;
   const bytes = new Uint8Array(binCount);
   const spectrum = new Float32Array(binCount);
   const third = Math.floor(binCount / 3);
@@ -56,16 +46,54 @@ export async function createWebAudioSource(opts = {}) {
     for (let i = lo; i < hi; i++) s += spectrum[i];
     return clamp(s / (hi - lo), 0, 1);
   };
-
-  const track = stream.getAudioTracks()[0];
   return {
-    label: (track && track.label) || 'audio input',
-    update() {
-      analyser.getByteFrequencyData(bytes);
-      for (let i = 0; i < binCount; i++) spectrum[i] = bytes[i] / 255;
-    },
+    label,
+    update() { analyser.getByteFrequencyData(bytes); for (let i = 0; i < binCount; i++) spectrum[i] = bytes[i] / 255; },
     getSpectrum() { return spectrum; },
     getLevels() { return { bass: avg(0, third), mid: avg(third, 2 * third), treble: avg(2 * third, binCount) }; },
     stop() { stream.getTracks().forEach((t) => t.stop()); ctx.close(); },
   };
+}
+
+// Real audio source: captures an input device through a Web Audio AnalyserNode
+// (true FFT) and exposes the SAME interface as the simulated source
+// (getSpectrum / getLevels / update) so the visual layer is unchanged.
+/**
+ * @param {{ deviceId?: string, bands?: number }} [opts]
+ * @returns {Promise<import('./types.js').AudioSource>}
+ */
+export async function createWebAudioSource(opts = {}) {
+  /** @type {MediaTrackConstraints} */
+  const audioConstraints = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  if (opts.deviceId) audioConstraints.deviceId = { exact: opts.deviceId };
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+
+  const Ctx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+  const ctx = /** @type {AudioContext} */ (new Ctx());
+  if (ctx.state === 'suspended') await ctx.resume();
+
+  const track = stream.getAudioTracks()[0];
+  return analyserSourceFromStream(ctx, stream, (track && track.label) || 'audio input');
+}
+
+// System-audio loopback (Electron getDisplayMedia → macOS ScreenCaptureKit). No BlackHole; the
+// user still hears their speakers. We capture a screen source only to obtain the audio loopback,
+// then immediately drop the video track.
+/**
+ * @param {object} [opts]
+ * @returns {Promise<import('./types.js').AudioSource>}
+ */
+export async function createSystemAudioSource(opts = {}) {
+  const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  stream.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
+  if (!stream.getAudioTracks().length) {
+    stream.getTracks().forEach((t) => t.stop());
+    throw new Error('系统未提供环回音频轨道（需在「系统设置 → 隐私与安全性 → 屏幕录制」授权后重启 app）');
+  }
+  const Ctx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+  const ctx = /** @type {AudioContext} */ (new Ctx());
+  if (ctx.state === 'suspended') await ctx.resume();
+  const audioStream = new MediaStream(stream.getAudioTracks());
+  return analyserSourceFromStream(ctx, audioStream, '系统声音 (环回)');
 }

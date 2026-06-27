@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, session, systemPreferences } from 'electron';
+import { app, BrowserWindow, desktopCapturer, screen, session, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createAppServer } from './server.js';
@@ -25,6 +25,15 @@ async function createWindow() {
     callback(permission === 'media' || permission === 'audioCapture');
   });
   ses.setPermissionCheckHandler((_wc, permission) => permission === 'media' || permission === 'audioCapture');
+  // System-audio loopback via ScreenCaptureKit: auto-select the primary screen source and
+  // request the audio loopback track — no picker shown. The renderer drops the video track
+  // immediately; only the audio loopback feeds the analyser. Requires macOS Screen Recording
+  // permission (TCC), which the OS prompts for on first use.
+  ses.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      callback({ video: sources[0], audio: 'loopback' }); // system audio loopback (macOS ScreenCaptureKit)
+    }).catch(() => callback({}));
+  }, { useSystemPicker: false });
   const { bounds } = screen.getPrimaryDisplay();
   win = new BrowserWindow({
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,

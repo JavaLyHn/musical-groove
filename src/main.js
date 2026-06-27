@@ -22,7 +22,7 @@ import { createCameraRig } from './scene/cameraRig.js';
 import { createSimulatedAudioSource } from './audioSource.js';
 import { createAudioShaper } from './util/audioShaper.js';
 import { createBeatDetector } from './util/beatDetector.js';
-import { createWebAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
+import { createWebAudioSource, createSystemAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
 import { createAudioControls } from './ui.js';
 import { createComposer } from './scene/postfx.js';
 import { createNowPlaying } from './nowPlaying.js';
@@ -95,10 +95,19 @@ const _sig = createSignature({
 });
 if (new URLSearchParams(location.search).has('gui')) _sig.click(); // auto-open with ?gui
 
-// Swap the simulated source for real system audio (prefers a BlackHole-style
-// loopback device; falls back to the default input). Same interface -> no
-// visual changes. Returns a status label for the UI.
+// Swap the simulated source for real system audio. In Electron, use the
+// ScreenCaptureKit loopback (no BlackHole; speakers keep working). In a plain
+// browser, fall back to getUserMedia with a BlackHole-style loopback device.
+// Same interface -> no visual changes. Returns a status label for the UI.
 async function connectRealAudio() {
+  const inElectron = !!(window.__wallpaper__ && window.__wallpaper__.isElectron);
+  if (inElectron) {
+    const sys = await createSystemAudioSource();
+    sys.update(0);
+    audio = sys;
+    console.log('[声音星球] audio connected:', sys.label);
+    return '● ' + sys.label;
+  }
   const deviceId = await pickLoopbackDeviceId();
   const web = await createWebAudioSource({ deviceId });
   web.update(0);
