@@ -81,6 +81,7 @@ export function createPillarField() {
       uCoreBoost: { value: f.coreBoost }, uEmissiveGain: { value: f.emissiveGain },
       uCoreHeat: { value: f.coreHeat }, uHotColor: { value: new THREE.Color(CONFIG.colors.hot) },
       uKick: { value: 0 }, uKickSurge: { value: f.kickSurge }, uKickFlash: { value: f.kickFlash },
+      uIdleEmissive: { value: f.idleEmissive }, uIdleNoiseScale: { value: f.idleNoiseScale }, uIdleNoiseSpeed: { value: f.idleNoiseSpeed }, uTopTint: { value: f.topTint },
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uSegmented: { value: f.segmented === false ? 0 : 1 }, // 1 = segmented blocks, 0 = smooth bar
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
@@ -258,6 +259,10 @@ export function createPillarField() {
     U.uLevelFloor.value = m.levelFloor;
     U.uWaveAmp.value = m.waveAmp;
     U.uIdleHeight.value = m.idleHeight;
+    U.uIdleEmissive.value = f.idleEmissive;
+    U.uIdleNoiseScale.value = f.idleNoiseScale;
+    U.uIdleNoiseSpeed.value = f.idleNoiseSpeed;
+    U.uTopTint.value = f.topTint;
     U.uCoreHeat.value = f.coreHeat;
     U.uKick.value = kickPunch; U.uKickSurge.value = f.kickSurge; U.uKickFlash.value = f.kickFlash;
     U.uSegmented.value = f.segmented === false ? 0 : 1;
@@ -282,7 +287,7 @@ export function createPillarField() {
     U.uCoverTintAmt.value = coverAmtCur;
   }
 
-  return { mesh, update, setCoverColor, _layout: layout };
+  return { mesh, update, setCoverColor, getIdleMix: () => idleMix, _layout: layout };
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +318,7 @@ attribute vec2 aField;
 attribute float aRing;
 attribute float aRnd;
 attribute float aPhase;
-uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp, uIdleMix, uIdleHeight;
+uniform float uTime, uLevel, uHeightScale, uBaseHeight, uIdleAmp, uIdleMix, uIdleHeight, uIdleNoiseScale, uIdleNoiseSpeed;
 uniform sampler2D uHistory;
 uniform float uMaxDelayRows, uLevelFloor;
 uniform float uMid;
@@ -338,10 +343,11 @@ float ring = aRing;
 // idle STANDBY: a FOREST of standing columns (per-column height from layered, slowly
 // drifting noise) so the ripple sweeps through real 3D structure instead of a flat
 // plane. Gated by uIdleMix — absent while music plays (the audio builds the columns then).
-float n1 = (snoise(aField * 0.06 + vec2(uTime * 0.05, 0.0)) + 1.0) * 0.5;
-float n2 = (snoise(aField * 0.15 - vec2(0.0, uTime * 0.07)) + 1.0) * 0.5;
+float n1 = (snoise(aField * 0.06 * uIdleNoiseScale + vec2(uTime * 0.05 * uIdleNoiseSpeed, 0.0)) + 1.0) * 0.5;
+float n2 = (snoise(aField * 0.15 * uIdleNoiseScale - vec2(0.0, uTime * 0.07 * uIdleNoiseSpeed)) + 1.0) * 0.5;
 float skyline = pow(n1 * 0.62 + n2 * 0.38, 1.5);     // contrasted terrain -> distinct columns + valleys
-float idle = uIdleHeight * skyline * (0.35 + 0.65 * aRnd) * uIdleMix;
+float idleBreath = 1.0 + 0.12 * sin(uTime * 0.16) * uIdleMix; // ~40s slow swell -> the resting hills "breathe"
+float idle = uIdleHeight * skyline * (0.35 + 0.65 * aRnd) * uIdleMix * idleBreath;
 
 // RADIAL PHASE DELAY (the hero): read this column's bands from the history texture
 // delayed by its radius. centre = now, rim = up to uMaxDelayRows frames ago -> a beat
@@ -422,6 +428,7 @@ transformed.y = position.y * totalHeight;`;
 
 const FRAG_COMMON = `#include <common>
 uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel, uSegmented;
+uniform float uIdleMix, uIdleEmissive, uTopTint;
 uniform float uTime, uWarmth, uBrightness, uSharpness;
 uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, uAir;
 uniform vec3 uRamp[5];
@@ -468,7 +475,8 @@ _segMask = mix(1.0, _segMask, uSegmented); // uSegmented 0 -> no gaps -> one smo
 vec3 _emis = paletteColor(_b) * _segMask;
 _emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
 _emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus
-_emis *= uEmissiveGain * (0.45 + 0.55 * uLevel); // exposure cut + loud->bright / quiet->dark
+float _lvlGain = mix(0.45 + 0.55 * uLevel, uIdleEmissive, uIdleMix); // STANDBY emissive floor: silent field stays dim-but-visible, not ~black
+_emis *= uEmissiveGain * _lvlGain;
 
 // soft hot NUCLEUS: the low end burns the CENTRE and fades to the rim, so on a beat a focal
 // white-hot core floats out (centre hot -> cooler/darker edges) instead of the whole field
@@ -481,7 +489,7 @@ _emis += uHotColor * _nucleus * (0.25 + 0.75 * _b);
 // so the field isn't a sea of uniform cyan tips ("满场均匀闪").
 float _top = smoothstep(0.80, 1.0, vYNorm);
 float _topAct = smoothstep(0.32, 0.85, _hN);
-_emis += paletteColor(_b) * _top * 0.6 * _segMask * uEmissiveGain * _topAct;
+_emis += mix(uHotColor, vec3(0.37, 0.85, 1.0), pow(_hN, 2.0) * uTopTint) * _top * 0.6 * _segMask * uEmissiveGain * _topAct;
 
 // --- surface micro-detail (upper part of pillars), driven by the high bands ---
 // gated by activity so a calm column barely twinkles (主次/对比更强)
