@@ -107,7 +107,7 @@ export const SECTIONS = [
         ],
       },
       {
-        id: 'lyrics', title: '歌词', en: 'LYRICS', collapsed: true, controls: [
+        id: 'lyrics', title: '歌词', en: 'LYRICS', controls: [
           { key: 'lyrics.show', kind: 'toggle', label: '显示歌词', def: true,
             get: () => C.lyrics.show, set: (r, v) => { C.lyrics.show = v; } },
           { key: 'lyrics.fontSize', kind: 'slider', label: '字号 px', min: 18, max: 64, step: 1, def: 36,
