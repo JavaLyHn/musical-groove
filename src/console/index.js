@@ -6,10 +6,11 @@
 // are decorative chrome — not wired to audio (spec §9). Lazily imported by main.js on first open.
 import './console.css';
 import { CONFIG } from '../config.js';
-import { isDirty } from '../presets.js';
+import { isDirty, applySnapshot } from '../presets.js';
 import { SECTIONS } from './schema.js';
 import { makeSlider, makeToggle, makeDial, makeColor } from './widgets.js';
 import { createPresetsBar } from './presetsBar.js';
+import { STYLES, styleSnapshot } from '../styles.js';
 
 const ACCENTS = ['#5FD0E0', '#9A8FE6', '#7CF1B0', '#F2A6C2'];
 
@@ -79,6 +80,25 @@ export function createConsole({ rig, renderer, onClose }) {
     dots.push(dt); accentPick.appendChild(dt);
   }
   presetsBar.el.appendChild(accentPick);
+  // ---- default-style quick-pick strip (one-click factory looks; applying leaves state dirty) ----
+  const stylesBar = document.createElement('div');
+  stylesBar.className = 'stylesbar';
+  const slab = document.createElement('span');
+  slab.className = 'slab'; slab.textContent = '默认风格';
+  stylesBar.appendChild(slab);
+  for (const st of STYLES) {
+    const chip = document.createElement('button');
+    chip.className = 'stylechip'; chip.title = st.hint || st.name;
+    const sdot = document.createElement('span');
+    sdot.className = 'sdot';
+    const sc = st.overrides['post.accentColor'] || getAccent();
+    sdot.style.background = sc; sdot.style.color = sc; // color drives the box-shadow glow
+    const slbl = document.createElement('span'); slbl.textContent = st.name;
+    chip.append(sdot, slbl);
+    chip.addEventListener('click', () => { applySnapshot(refs, styleSnapshot(st)); refreshAll(); });
+    stylesBar.appendChild(chip);
+  }
+  wrap.appendChild(stylesBar);
   wrap.appendChild(presetsBar.el);
 
   // ---- sections ----
