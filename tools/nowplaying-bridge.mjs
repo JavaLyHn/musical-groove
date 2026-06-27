@@ -289,53 +289,77 @@ function sendCommand(id) {
   } catch { /* ignore */ }
 }
 
+const BRIDGE_ROUTES = ['/__nowplaying', '/__lyrics', '/__seek', '/__cmd'];
+
+/** @param {string} pathname */
+export function isBridgeRoute(pathname) {
+  return BRIDGE_ROUTES.includes(pathname);
+}
+
+/**
+ * Framework-agnostic bridge: owns the now-playing stream + the lyrics/seek/cmd routes.
+ * `handle` returns true if it consumed the request (so a host http server can `if(!handle) next/404`).
+ * @param {{ log?: (m: string) => void, autoStart?: boolean }} [opts]
+ *   autoStart defaults true (real use spawns the now-playing reader); pass false in tests
+ *   so no perl process is spawned.
+ */
+export function createNowPlayingHandler(opts = {}) {
+  const log = opts.log || (() => {});
+  const bridge = createNowPlayingBridge({ log });
+  if (opts.autoStart !== false) bridge.start(); // no-op-ish if the adapter isn't built (logs + overlay stays empty)
+
+  /**
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @returns {boolean} handled
+   */
+  function handle(req, res) {
+    const u = new URL(req.url || '/', 'http://localhost');
+    const path = u.pathname;
+    if (!isBridgeRoute(path)) return false;
+    if (path === '/__nowplaying') { bridge.sse(req, res); return true; }
+    if (path === '/__lyrics') {
+      fetchLyrics({
+        title: u.searchParams.get('title') || '',
+        artist: u.searchParams.get('artist') || '',
+        album: u.searchParams.get('album') || '',
+        duration: u.searchParams.get('duration') || '',
+      }).then((synced) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ syncedLyrics: synced }));
+      }).catch(() => { res.statusCode = 500; res.end('{}'); });
+      return true;
+    }
+    if (path === '/__seek') {
+      seekTo(u.searchParams.get('pos') || u.searchParams.get('position') || '');
+      res.setHeader('Content-Type', 'application/json'); res.end('{"ok":true}');
+      return true;
+    }
+    if (path === '/__cmd') {
+      sendCommand(u.searchParams.get('id') || '');
+      res.setHeader('Content-Type', 'application/json'); res.end('{"ok":true}');
+      return true;
+    }
+    return false;
+  }
+
+  return { handle, close: () => bridge.stop() };
+}
+
 // Vite dev-server plugin: spawn the bridge and serve the stream at /__nowplaying,
 // on whatever port Vite runs (so it follows the user's --port 5188). Dev only.
 export function nowPlayingVitePlugin() {
-  /** @type {ReturnType<typeof createNowPlayingBridge> | null} */
-  let bridge = null;
+  /** @type {ReturnType<typeof createNowPlayingHandler> | null} */
+  let h = null;
   return {
     name: 'now-playing-bridge',
     apply: 'serve',
     /** @param {import('vite').ViteDevServer} server */
     configureServer(server) {
-      bridge = createNowPlayingBridge({ log: (m) => server.config.logger.info('[now-playing] ' + m) });
-      const ok = bridge.start();
-      server.config.logger.info('[now-playing] ' + (ok ? 'reading system Now Playing → /__nowplaying' : 'disabled'));
-      server.middlewares.use('/__nowplaying', (req, res) => bridge?.sse(req, res));
-      // server-side lyrics proxy (lrclib + NetEase) so the page can fetch same-origin
-      server.middlewares.use('/__lyrics', async (req, res) => {
-        try {
-          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
-          const synced = await fetchLyrics({
-            title: u.searchParams.get('title') || '',
-            artist: u.searchParams.get('artist') || '',
-            album: u.searchParams.get('album') || '',
-            duration: u.searchParams.get('duration') || '',
-          });
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ syncedLyrics: synced }));
-        } catch { res.statusCode = 500; res.end('{}'); }
-      });
-      // seek the system player: GET /__seek?pos=<seconds> (drag the progress bar)
-      server.middlewares.use('/__seek', (req, res) => {
-        try {
-          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
-          seekTo(u.searchParams.get('pos') || u.searchParams.get('position') || '');
-          res.setHeader('Content-Type', 'application/json');
-          res.end('{"ok":true}');
-        } catch { res.statusCode = 500; res.end('{}'); }
-      });
-      // transport: GET /__cmd?id=<MRCommand> (prev=5, next=4, toggle play/pause=2)
-      server.middlewares.use('/__cmd', (req, res) => {
-        try {
-          const u = new URL(req.originalUrl || req.url || '/', 'http://localhost');
-          sendCommand(u.searchParams.get('id') || '');
-          res.setHeader('Content-Type', 'application/json');
-          res.end('{"ok":true}');
-        } catch { res.statusCode = 500; res.end('{}'); }
-      });
-      const close = () => { bridge?.stop(); bridge = null; };
+      h = createNowPlayingHandler({ log: (m) => server.config.logger.info('[now-playing] ' + m) });
+      server.config.logger.info('[now-playing] bridge routes mounted (/__nowplaying, /__lyrics, /__seek, /__cmd)');
+      server.middlewares.use((req, res, next) => { if (!h || !h.handle(req, res)) next(); });
+      const close = () => { h?.close(); h = null; };
       server.httpServer?.once('close', close);
       process.once('SIGINT', close);
       process.once('SIGTERM', close);
