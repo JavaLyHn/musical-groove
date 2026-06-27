@@ -88,6 +88,15 @@ function restoreDesktop() {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST = join(HERE, '..', 'dist');
 
+// In the packaged app the now-playing bridge's perl script + framework live under Resources/
+// (electron-builder extraResources), not the repo's vendor/. Point the bridge there before the
+// server (which reads these envs) starts. In dev these stay unset → repo paths are used.
+if (app.isPackaged) {
+  const adapterBase = join(process.resourcesPath, 'mediaremote-adapter');
+  process.env.NOWPLAYING_SCRIPT = join(adapterBase, 'bin', 'mediaremote-adapter.pl');
+  process.env.NOWPLAYING_FRAMEWORK = join(adapterBase, 'build', 'MediaRemoteAdapter.framework');
+}
+
 // The wallpaper auto-connects system audio with no user to click, so Web Audio must be
 // allowed to start without a gesture — otherwise the AudioContext stays suspended and the
 // analyser reads silence (pillars don't react).

@@ -13,6 +13,9 @@ dist/
 .cache/
 build/
 
+# electron-builder output (.dmg etc.)
+release/
+
 # Third-party Now-Playing adapter (cloned + built by scripts/setup-nowplaying.sh)
 vendor/
 

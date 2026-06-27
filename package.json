@@ -12,10 +12,12 @@
     "typecheck": "tsc -p jsconfig.json --noEmit",
     "nowplaying:fix": "killall QuickLookUIService 2>/dev/null || true",
     "build:native": "node-gyp rebuild --runtime=electron --target=$(node -p \"require('electron/package.json').version\") --dist-url=https://electronjs.org/headers --arch=arm64",
-    "electron:dev": "npm run build:native && npm run build && electron ."
+    "electron:dev": "npm run build:native && npm run build && electron .",
+    "dist:mac": "npm run build:native && npm run build && electron-builder --mac --publish never"
   },
   "devDependencies": {
     "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "node-gyp": "^13.0.0",
     "typescript": "^6.0.3",
     "vite": "^5.4.0",

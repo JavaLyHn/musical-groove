@@ -1,0 +1,33 @@
+appId: com.lyhn.musicalgroove
+productName: Musical Groove
+directories:
+  output: release
+  buildResources: assets
+files:
+  - dist/**
+  - electron/**
+  - tools/**
+  - build/Release/wallpaper.node
+  - package.json
+  - "!**/*.map"
+asarUnpack:
+  - "**/*.node"
+extraResources:
+  - from: vendor/mediaremote-adapter/bin
+    to: mediaremote-adapter/bin
+  - from: vendor/mediaremote-adapter/build/MediaRemoteAdapter.framework
+    to: mediaremote-adapter/build/MediaRemoteAdapter.framework
+mac:
+  category: public.app-category.entertainment
+  target:
+    - target: dmg
+      arch: [arm64]
+  identity: null            # v1: unsigned (ad-hoc); no Developer ID / notarization
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  entitlements: assets/entitlements.mac.plist
+  entitlementsInherit: assets/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: 用于读取系统声音以驱动壁纸的音乐律动。
+dmg:
+  title: Musical Groove ${version}
