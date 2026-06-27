@@ -203,7 +203,8 @@ function setupPresets(gui, refs) {
   const list = /** @type {HTMLDivElement} */ (bar.querySelector('.plist'));
   const msgEl = /** @type {HTMLDivElement} */ (bar.querySelector('.msg'));
 
-  let msgTimer = 0;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let msgTimer;
   /** @param {string} t */
   const flash = (t) => { msgEl.textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { msgEl.textContent = ''; }, 2400); };
 
