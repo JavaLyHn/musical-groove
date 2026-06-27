@@ -1,7 +1,25 @@
 import { app, BrowserWindow, desktopCapturer, screen, session, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import { createAppServer } from './server.js';
+
+const require = createRequire(import.meta.url);
+let nativeWallpaper = null;
+try { nativeWallpaper = require('../build/Release/wallpaper.node'); }
+catch (e) { console.log('[wallpaper] native addon unavailable:', e && e.message ? e.message : e); }
+
+function setWallpaperLevel(w) {
+  try { if (nativeWallpaper) nativeWallpaper.setDesktopLevel(w.getNativeWindowHandle()); }
+  catch (e) { console.log('[wallpaper] setDesktopLevel failed:', e && e.message ? e.message : e); }
+  w.setIgnoreMouseEvents(true); // clicks pass through to the Finder desktop/icons
+}
+function setNormalLevel(w) {
+  try { if (nativeWallpaper) nativeWallpaper.setNormalLevel(w.getNativeWindowHandle()); }
+  catch (e) { console.log('[wallpaper] setNormalLevel failed:', e && e.message ? e.message : e); }
+  w.setIgnoreMouseEvents(false);
+  w.focus();
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST = join(HERE, '..', 'dist');
@@ -65,6 +83,7 @@ async function createWindow() {
   }
   console.log('[screen] TCC status:', systemPreferences.getMediaAccessStatus('screen'));
   win.loadURL(server.url + '/?autoaudio');
+  win.webContents.once('did-finish-load', () => setWallpaperLevel(win));
 }
 
 const gotLock = app.requestSingleInstanceLock();
