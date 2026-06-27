@@ -154,7 +154,7 @@ export const SECTIONS = [
   },
 ];
 
-/** Flattened control list (37). @returns {Control[]} */
+/** Flattened control list (43). @returns {Control[]} */
 export function allControls() {
   /** @type {Control[]} */
   const out = [];
