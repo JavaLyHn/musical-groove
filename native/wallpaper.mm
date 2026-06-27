@@ -29,7 +29,7 @@ static napi_value SetNormalLevel(napi_env env, napi_callback_info info) {
   napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   NSWindow* w = windowFromArg(env, args[0]);
   if (w) {
-    [w setLevel:NSFloatingWindowLevel];
+    [w setLevel:NSNormalWindowLevel];
     [w setIgnoresMouseEvents:NO];
     [w makeKeyAndOrderFront:nil];
   }

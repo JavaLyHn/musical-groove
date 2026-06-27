@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, Menu, nativeImage, screen, session, systemPreferences, Tray } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, Menu, nativeImage, screen, session, systemPreferences, Tray } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -54,9 +54,10 @@ async function cmd(id) {
 
 function buildTrayMenu() {
   if (!tray) return;
+  const cur = mode; // capture build-time mode so a blur between build and click can't race the toggle
   const menu = Menu.buildFromTemplate([
-    { label: mode === 'settings' ? '✓ 设置模式（点此返回壁纸）' : '设置…',
-      click: () => setMode(mode === 'settings' ? 'wallpaper' : 'settings') },
+    { label: cur === 'settings' ? '✓ 设置模式（点此返回壁纸）' : '设置…',
+      click: () => setMode(cur === 'settings' ? 'wallpaper' : 'settings') },
     { type: 'separator' },
     { label: '上一首', click: () => cmd(5) },
     { label: '播放 / 暂停', click: () => cmd(2) },
@@ -120,6 +121,7 @@ async function createWindow() {
     webPreferences: { preload: join(HERE, 'preload.js'), contextIsolation: true, nodeIntegration: false, autoplayPolicy: 'no-user-gesture-required' },
   });
   win.webContents.on('console-message', (e) => { if (e && e.message) console.log('[renderer]', e.message); });
+  ipcMain.on('wallpaper:exit-settings', () => { if (mode === 'settings') setMode('wallpaper'); });
   // macOS: explicitly request mic access from the main process — the renderer's getUserMedia
   // alone often won't trigger the TCC prompt. Logs the status so we can diagnose.
   try {
