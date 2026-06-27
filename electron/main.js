@@ -36,8 +36,9 @@ let win = null;
 
 let tray = null;
 let mode = 'wallpaper';
-// 1x1 transparent PNG — the visible tray mark is the ♪ title; a real icon is a later optional task.
-const TRAY_IMG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+// 16x16 monochrome "equalizer bars" template PNG (alpha = shape; macOS recolors it). A real
+// branded icon is a later optional task. A ♪ title is shown next to it as well.
+const TRAY_IMG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR42mNgGKzgPxIepgYQtID+BqALDD4DCFowagAFBgAAkBR0jNF3Gp4AAAAASUVORK5CYII=';
 
 function setMode(next) {
   if (!win) return;
@@ -69,12 +70,19 @@ function buildTrayMenu() {
 }
 
 function createTray() {
-  const img = nativeImage.createFromBuffer(Buffer.from(TRAY_IMG_B64, 'base64'));
-  img.setTemplateImage(true);
-  tray = new Tray(img);
-  tray.setTitle('♪');
-  tray.setToolTip('声音星球');
-  buildTrayMenu();
+  if (tray) return; // defensive: only one tray for the app's lifetime
+  try {
+    const img = nativeImage.createFromBuffer(Buffer.from(TRAY_IMG_B64, 'base64'));
+    img.setTemplateImage(true);
+    console.log('[tray] image empty?', img.isEmpty(), 'size', JSON.stringify(img.getSize()));
+    tray = new Tray(img);
+    tray.setTitle('♪');
+    tray.setToolTip('声音星球');
+    buildTrayMenu();
+    console.log('[tray] created');
+  } catch (e) {
+    console.log('[tray] createTray failed:', e && e.message ? e.message : e);
+  }
 }
 
 async function createWindow() {
@@ -126,7 +134,7 @@ async function createWindow() {
   }
   console.log('[screen] TCC status:', systemPreferences.getMediaAccessStatus('screen'));
   win.loadURL(server.url + '/?autoaudio');
-  win.webContents.once('did-finish-load', () => { setWallpaperLevel(win); createTray(); });
+  win.webContents.once('did-finish-load', () => { console.log('[tray] did-finish-load → createTray'); setWallpaperLevel(win); createTray(); });
   win.on('blur', () => { if (mode === 'settings') setMode('wallpaper'); });
 }
 
