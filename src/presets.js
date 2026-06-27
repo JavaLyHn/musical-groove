@@ -93,3 +93,10 @@ export function applyLast(refs) {
   applySnapshot(refs, presets[last]);
   return last;
 }
+
+/** The stableKeys a snapshot captures — for the console schema consistency test.
+ *  Uses empty refs because `targets()` only stores the object refs, not their values.
+ *  @returns {string[]} */
+export function presetKeys() {
+  return targets(/** @type {any} */ ({ rig: { state: {} }, renderer: {} })).map(([k]) => k);
+}
