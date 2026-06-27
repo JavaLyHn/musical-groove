@@ -22,16 +22,38 @@ function setNormalLevel(w) {
   w.focus();
 }
 
-// Hide/show ALL macOS desktop icons & files (Finder "CreateDesktop"). The wallpaper starts with
-// them hidden for a clean canvas; the tray toggles it, and quitting restores them so the system
-// isn't left altered. Global Finder setting (affects the whole desktop), not app-local.
-let desktopIconsHidden = false;
-function setDesktopIconsHidden(hidden) {
-  desktopIconsHidden = hidden;
+// Hide/show ALL macOS desktop clutter for a clean wallpaper canvas: Finder icons/files
+// (com.apple.finder CreateDesktop) AND desktop widgets (com.apple.WindowManager
+// Standard/StageManagerHideWidgets — widgets are a separate process, not Finder). The wallpaper
+// hides them by default; the tray toggles it; quitting restores the user's ORIGINAL settings
+// (captured once below) so nothing is left altered. Global system settings; macOS only.
+/** @param {string} domain @param {string} key @param {string} fallback */
+function readDefault(domain, key, fallback) {
+  try { return execSync(`defaults read ${domain} ${key} 2>/dev/null`).toString().trim(); }
+  catch { return fallback; }
+}
+const _origDesktop = {
+  icons: readDefault('com.apple.finder', 'CreateDesktop', '1'),                 // unset/1 = icons shown
+  stdWidgets: readDefault('com.apple.WindowManager', 'StandardHideWidgets', '0'),
+  stageWidgets: readDefault('com.apple.WindowManager', 'StageManagerHideWidgets', '0'),
+};
+let desktopHidden = false;
+function setDesktopHidden(hidden) {
+  desktopHidden = hidden;
+  const b = (/** @type {boolean} */ v) => (v ? 'true' : 'false');
   try {
-    execSync(`defaults write com.apple.finder CreateDesktop -bool ${hidden ? 'false' : 'true'}`);
-    execSync('killall Finder'); // relaunch Finder so the change takes effect now
-  } catch (e) { console.log('[desktop-icons] toggle failed:', e && e.message ? e.message : e); }
+    if (hidden) {
+      execSync('defaults write com.apple.finder CreateDesktop -bool false');               // hide icons/files
+      execSync('defaults write com.apple.WindowManager StandardHideWidgets -bool true');     // hide desktop widgets
+      execSync('defaults write com.apple.WindowManager StageManagerHideWidgets -bool true');
+    } else { // restore exactly what the user had
+      execSync(`defaults write com.apple.finder CreateDesktop -bool ${b(_origDesktop.icons !== '0')}`);
+      execSync(`defaults write com.apple.WindowManager StandardHideWidgets -bool ${b(_origDesktop.stdWidgets === '1')}`);
+      execSync(`defaults write com.apple.WindowManager StageManagerHideWidgets -bool ${b(_origDesktop.stageWidgets === '1')}`);
+    }
+    execSync('killall Finder');        // relaunch Finder so icon change applies now
+    execSync('killall WindowManager'); // relaunch WindowManager so widget change applies now
+  } catch (e) { console.log('[clean-desktop] toggle failed:', e && e.message ? e.message : e); }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -78,8 +100,8 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }) },
-    { label: '隐藏桌面图标', type: 'checkbox', checked: desktopIconsHidden,
-      click: () => { setDesktopIconsHidden(!desktopIconsHidden); buildTrayMenu(); } },
+    { label: '隐藏桌面图标和小组件', type: 'checkbox', checked: desktopHidden,
+      click: () => { setDesktopHidden(!desktopHidden); buildTrayMenu(); } },
     { label: '退出 Musical Groove', click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
@@ -157,7 +179,7 @@ async function createWindow() {
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); } else {
-  app.whenReady().then(() => { createWindow(); setDesktopIconsHidden(true); }); // clean canvas: hide desktop icons by default
+  app.whenReady().then(() => { createWindow(); setDesktopHidden(true); }); // clean canvas: hide desktop icons + widgets by default
   app.on('window-all-closed', () => { /* keep running (wallpaper); quit via tray */ });
-  app.on('before-quit', async () => { setDesktopIconsHidden(false); if (server) await server.close(); }); // restore the desktop on exit
+  app.on('before-quit', async () => { setDesktopHidden(false); if (server) await server.close(); }); // restore the desktop on exit
 }
