@@ -12,7 +12,7 @@ const LAST_KEY = 'lyhn-preset-last';  // name of the version to auto-apply on lo
 /** @typedef {{ rig: { state: any }, renderer: any }} Refs */
 
 // The exact set of user-tunable parameters a version captures: [stableKey, object, property].
-// KEEP IN SYNC with the controls created in gui.js.
+// KEEP IN SYNC with src/console/schema.js (allControls); test/consoleSchema.test.js enforces it.
 /** @param {Refs} refs @returns {[string, any, string][]} */
 function targets(refs) {
   const C = CONFIG, st = refs.rig.state, rn = refs.renderer;

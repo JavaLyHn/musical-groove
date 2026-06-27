@@ -12,7 +12,7 @@ export function initElectronMode(refs) {
   style.textContent = `
     body.wp-wallpaper .lyhn-lyrics,
     body.wp-wallpaper .np { pointer-events: none !important; }
-    body.wp-wallpaper .lil-gui.lyhn-gui { display: none !important; }`;
+    body.wp-wallpaper .mg-console { display: none !important; }`;
   document.head.appendChild(style);
 
   const canvas = document.getElementById('app');
