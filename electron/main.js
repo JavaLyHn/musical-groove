@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, screen, session, systemPreferences } from 'electron';
+import { app, BrowserWindow, desktopCapturer, Menu, nativeImage, screen, session, systemPreferences, Tray } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -33,6 +33,49 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let server = null;
 /** @type {BrowserWindow | null} */
 let win = null;
+
+let tray = null;
+let mode = 'wallpaper';
+// 1x1 transparent PNG — the visible tray mark is the ♪ title; a real icon is a later optional task.
+const TRAY_IMG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+function setMode(next) {
+  if (!win) return;
+  mode = next;
+  if (next === 'settings') setNormalLevel(win); else setWallpaperLevel(win);
+  win.webContents.send('wallpaper:mode', next);
+  buildTrayMenu();
+}
+
+async function cmd(id) {
+  try { if (server) await fetch(`${server.url}/__cmd?id=${id}`); } catch { /* ignore */ }
+}
+
+function buildTrayMenu() {
+  if (!tray) return;
+  const menu = Menu.buildFromTemplate([
+    { label: mode === 'settings' ? '✓ 设置模式（点此返回壁纸）' : '设置…',
+      click: () => setMode(mode === 'settings' ? 'wallpaper' : 'settings') },
+    { type: 'separator' },
+    { label: '上一首', click: () => cmd(5) },
+    { label: '播放 / 暂停', click: () => cmd(2) },
+    { label: '下一首', click: () => cmd(4) },
+    { type: 'separator' },
+    { label: '开机自启', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
+      click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }) },
+    { label: '退出声音星球', click: () => app.quit() },
+  ]);
+  tray.setContextMenu(menu);
+}
+
+function createTray() {
+  const img = nativeImage.createFromBuffer(Buffer.from(TRAY_IMG_B64, 'base64'));
+  img.setTemplateImage(true);
+  tray = new Tray(img);
+  tray.setTitle('♪');
+  tray.setToolTip('声音星球');
+  buildTrayMenu();
+}
 
 async function createWindow() {
   server = await createAppServer({ distDir: DIST, log: (m) => console.log('[server]', m) });
@@ -83,7 +126,8 @@ async function createWindow() {
   }
   console.log('[screen] TCC status:', systemPreferences.getMediaAccessStatus('screen'));
   win.loadURL(server.url + '/?autoaudio');
-  win.webContents.once('did-finish-load', () => setWallpaperLevel(win));
+  win.webContents.once('did-finish-load', () => { setWallpaperLevel(win); createTray(); });
+  win.on('blur', () => { if (mode === 'settings') setMode('wallpaper'); });
 }
 
 const gotLock = app.requestSingleInstanceLock();
