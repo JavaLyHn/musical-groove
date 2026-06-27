@@ -57,6 +57,10 @@ export const CONFIG = {
     // transient is gone in ~150ms, so it never regresses to "整片一起呼吸").
     kickSurge: 4.0,          // collective height pop on the kick (units added to EVERY column)
     kickFlash: 0.5,          // collective emissive flash on the kick (emissive *= 1 + kick*this)
+    idleEmissive: 0.7,       // STANDBY emissive floor (uIdleMix-gated): silent field stays dim-but-visible, not ~black
+    idleNoiseScale: 0.7,     // STANDBY hill coord scale (smaller = bigger/broader resting hills)
+    idleNoiseSpeed: 0.6,     // STANDBY hill drift-speed multiplier (smaller = slower)
+    topTint: 0.6,            // cyan pulled into the hottest pillar tops (0 = pure hot color)
     emissiveGain: 0.6,       // overall emissive exposure cut (dark field; ripples bypass it)
     brightSpan: 0.62,        // (legacy CPU path) a column is fully white-hot at baseHeight + reactive*brightSpan
     brightPow: 1.8,          // emissive curve exponent
@@ -100,13 +104,13 @@ export const CONFIG = {
     // keeps standby from fighting the music and cures the quiet-section collapse/flicker.
     idleSilence: 0.045, // overall level below this counts as "silent"
     idleDebounce: 1.0,  // seconds of silence before the standby wave fades in
-    idleTransition: 1.0,// seconds to fade the standby wave in / out
-    idleHeight: 9.0,    // standby: height of the resting COLUMN FOREST the ripple sweeps through
+    idleTransition: 2.0,// seconds to fade the standby wave in / out (slower, smoother sink to standby)
+    idleHeight: 11.0,   // standby: height of the resting COLUMN FOREST the ripple sweeps through
                         // (without standing columns the ripple is just a flat plane)
     // standby signature: once idle, a gentle ripple sweeps across the dark field on a
     // timer (the "涟漪一扫而过" look), instead of just a static swell.
     idleRippleEvery: 2.6,    // seconds between standby ripple sweeps
-    idleRippleStrength: 0.85,// strength of each standby ripple (scaled by how idle it is)
+    idleRippleStrength: 1.0,// strength of each standby ripple (scaled by how idle it is)
   },
 
   // RIPPLES are a first-class reaction now: an independent (sensitivity, cooldown) pair
@@ -126,7 +130,7 @@ export const CONFIG = {
   // deep-space color while the foreground/core stay bright. The camera rig
   // re-derives near/far from the camera distance so the depth look holds while
   // tuning; these are the static fallback.
-  fog: { near: 175, far: 330 },
+  fog: { near: 175, far: 330, farMult: 1.45 }, // farMult: cameraRig multiplies distance by this for fog.far (smaller = nearer fade)
 
   // beat ripple in the GPU shader (field world coords; the cap spans ~±132):
   // a ring expanding from the core, sweeping the field in ~0.6-0.7s. width = the
@@ -167,7 +171,7 @@ export const CONFIG = {
     peakFloor: 0.04,         // min overall peak -> caps how much a near-silent track is amplified
   },
 
-  core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0 }, // dim + cool
+  core: { radius: 1.2, intensity: 0.2, pulse: 0.8, ringSpeed: 6.0, idleBreath: 1.0 }, // dim + cool; idleBreath = standby slow-glow amplitude
   stars: { count: 1400, radius: 220 },
   // STATIC camera (no orbit/bob) — LOW oblique 3/4 view across the field so the
   // columns stand up, fill the frame, and their up/down motion is visible.

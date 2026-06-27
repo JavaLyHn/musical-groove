@@ -53,6 +53,12 @@ function targets(refs) {
     ['post.accentColor', C.post, 'accentColor'],
     ['post.accentIntensity', C.post, 'accentIntensity'],
     ['post.bloomThreshold', C.post, 'bloomThreshold'],
+    ['field.idleEmissive', C.field, 'idleEmissive'],
+    ['field.idleNoiseScale', C.field, 'idleNoiseScale'],
+    ['field.idleNoiseSpeed', C.field, 'idleNoiseSpeed'],
+    ['field.topTint', C.field, 'topTint'],
+    ['core.idleBreath', C.core, 'idleBreath'],
+    ['fog.farMult', C.fog, 'farMult'],
     ['renderer.exposure', rn, 'toneMappingExposure'],
   ];
 }
