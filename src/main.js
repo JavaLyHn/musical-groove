@@ -78,15 +78,19 @@ const { composer, setSize, update: updateFx } = createComposer(renderer, scene, 
 // look you saved. Values land in CONFIG / rig.state / renderer, which the loop reads live.
 if (applyLast({ rig, renderer })) rig.apply();
 
-// LyHN signature (top-left): click it to toggle the live control panel. lil-gui is
+// LyHN signature (top-left): click it to toggle the live console. The console module is
 // dynamically imported on first open, so it's code-split out of the wallpaper bundle.
 let _panel = null;
 let _panelOpen = false;
 const _sig = createSignature({
   onToggle: async () => {
     if (!_panel) {
-      const { createGui } = await import('./gui.js');
-      _panel = createGui({ rig, renderer });
+      const { createConsole } = await import('./console/index.js');
+      _panel = createConsole({
+        rig, renderer,
+        onClose: () => { _panelOpen = false; _sig.setActive(false); },
+      });
+      _panel.show();
       _panelOpen = true;
       return;
     }
