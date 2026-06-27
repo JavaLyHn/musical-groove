@@ -3,7 +3,7 @@
 // (snapshot/apply/storage) unchanged; this file owns only the chip DOM. Save = capture the
 // current look under "版本 N"; click a chip to load (active gets a ✓); × deletes (with a
 // confirm); rename inline. doLoad() calls onChange() so index re-syncs every control widget.
-import { snapshot, applySnapshot, getPresets, setPresets, getLast, setLast } from '../presets.js';
+import { snapshot, applySnapshot, getPresets, setPresets, getLast, setLast, markClean } from '../presets.js';
 
 /** @param {{ refs:any, onChange:()=>void }} opts */
 export function createPresetsBar({ refs, onChange }) {
@@ -49,14 +49,25 @@ export function createPresetsBar({ refs, onChange }) {
     let i = 1; while (presets['版本 ' + i]) i++;
     const name = '版本 ' + i;
     presets[name] = snapshot(refs); setPresets(presets);
-    active = name; setLast(name);
+    active = name; setLast(name); markClean(refs);
     render();
+  }
+  /** Save the current look into the active version (overwrite) or a new 「版本 N」 if none.
+   *  Used by the console's unsaved-changes exit prompt (distinct from the ＋ new-version button).
+   *  @returns {string} the version name written */
+  function saveCurrent() {
+    const name = (active && presets[active]) ? active
+      : (() => { let i = 1; while (presets['版本 ' + i]) i++; return '版本 ' + i; })();
+    presets[name] = snapshot(refs); setPresets(presets);
+    active = name; setLast(name); markClean(refs);
+    render();
+    return name;
   }
   /** @param {string} n */
   function doLoad(n) {
     if (!presets[n]) return;
     applySnapshot(refs, presets[n]);
-    active = n; setLast(n);
+    active = n; setLast(n); markClean(refs);
     render();
     onChange();
   }
@@ -94,5 +105,5 @@ export function createPresetsBar({ refs, onChange }) {
 
   save.addEventListener('click', doSave);
   render();
-  return { el: bar, refresh: render };
+  return { el: bar, refresh: render, saveCurrent };
 }
