@@ -76,8 +76,8 @@ export function createSparks() {
   // meteor randomizes its length, speed, fall angle, brightness, and AIM POINT (a random
   // spot near — not dead — centre) so no two look or travel the same (cures the monotony).
   function spawnMeteor(gentle = false) {
-    const sMul = gentle ? 0.8 : 1.0;   // gentler standby meteors: slower
-    const bMul = gentle ? 0.55 : 1.0;  // gentler standby meteors: dimmer
+    const sMul = gentle ? 0.95 : 1.0;  // standby meteors only slightly slower
+    const bMul = gentle ? 0.95 : 1.0;  // standby meteors only slightly dimmer (keep them clearly visible)
     const ang = Math.random() * Math.PI * 2;
     const startR = cfg.spawnR * (1.6 + Math.random() * 0.8);
     const sx = Math.cos(ang) * startR;
@@ -94,7 +94,7 @@ export function createSparks() {
     const vz = (dz / len) * speed;
     const vy = -cfg.meteorSpeed * (0.12 + Math.random() * 0.4) * sMul;    // fall angle: some steep, some shallow
     const trail = Math.max(4, Math.round(cfg.meteorTrail * (0.6 + Math.random() * 0.9))); // ~10..22 points
-    const bright = (0.7 + Math.random() * 0.7) * bMul;            // per-meteor brightness
+    const bright = (1.05 + Math.random() * 0.7) * bMul;          // per-meteor brightness (brighter floor -> more visible)
     const mLife = cfg.life * (0.85 + Math.random() * 0.4);        // per-meteor lifespan (kept uniform across its trail)
     for (let k = 0; k < trail; k++) {
       const i = cursor;
