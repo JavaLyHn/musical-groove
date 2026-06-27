@@ -37,6 +37,7 @@ function targets(refs) {
     ['motion.idleRippleStrength', C.motion, 'idleRippleStrength'],
     ['motion.idleMeteor', C.motion, 'idleMeteor'],
     ['motion.idleMeteorEvery', C.motion, 'idleMeteorEvery'],
+    ['motion.idleMeteorDensity', C.motion, 'idleMeteorDensity'],
     ['motion.radialDelay', C.motion, 'radialDelay'],
     ['motion.levelFloor', C.motion, 'levelFloor'],
     ['motion.waveAmp', C.motion, 'waveAmp'],

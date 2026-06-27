@@ -115,6 +115,7 @@ export const CONFIG = {
     // timer. idleMix-gated (0 = full music) so music mode never self-spawns one (待机红线).
     idleMeteor: true,       // standby self-meteors on/off
     idleMeteorEvery: 9.0,   // seconds between standby meteors (calm + sparse)
+    idleMeteorDensity: 3,   // gentle meteors per standby spawn (1 = single; higher = a small shower)
   },
 
   // RIPPLES are a first-class reaction now: an independent (sensitivity, cooldown) pair

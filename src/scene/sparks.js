@@ -145,7 +145,8 @@ export function createSparks() {
       idleMeteorT += dt;
       if (idleMeteorT >= CONFIG.motion.idleMeteorEvery) {
         idleMeteorT = 0;
-        spawnMeteor(true);
+        const n = Math.max(1, Math.round(CONFIG.motion.idleMeteorDensity || 1)); // density = gentle meteors per wave
+        for (let d = 0; d < n; d++) spawnMeteor(true);
       }
     } else {
       idleMeteorT = 0; // back to music (or sub-threshold): full interval after re-entering idle

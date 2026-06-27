@@ -152,13 +152,15 @@ export const SECTIONS = [
             get: () => C.motion.idleMeteor, set: (r, v) => { C.motion.idleMeteor = v; } },
           { key: 'motion.idleMeteorEvery', kind: 'slider', label: '待机流星间隔 s', hint: '越大越稀少', min: 3, max: 30, step: 1, def: 9,
             get: () => C.motion.idleMeteorEvery, set: (r, v) => { C.motion.idleMeteorEvery = v; } },
+          { key: 'motion.idleMeteorDensity', kind: 'slider', label: '待机流星密度', hint: '每波落几颗(越大越密)', min: 1, max: 8, step: 1, def: 3,
+            get: () => C.motion.idleMeteorDensity, set: (r, v) => { C.motion.idleMeteorDensity = v; } },
         ],
       },
     ],
   },
 ];
 
-/** Flattened control list (45). @returns {Control[]} */
+/** Flattened control list (46). @returns {Control[]} */
 export function allControls() {
   /** @type {Control[]} */
   const out = [];
