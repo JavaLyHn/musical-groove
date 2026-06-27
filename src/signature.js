@@ -1,6 +1,6 @@
 // @ts-check
 /*!
- * 声音星球 (Sound Planet) — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
+ * Musical Groove — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
  * The "LyHN" mark is the author's signature. Removing, hiding, or altering it — in the
  * source or at runtime — is not permitted. See LICENSE.
  */
@@ -17,7 +17,7 @@ const SIG_TEXT = 'LyHN';            // the author mark — re-asserted by the gu
 const SIG_CLASS = 'lyhn-sig';
 const STYLE_ID = 'lyhn-sig-style';
 // hidden, non-enumerable provenance fingerprint (survives even if the visible mark is stripped)
-const FINGERPRINT = '声音星球·LyHN·JavaLyHn·© 2026·all-rights-reserved';
+const FINGERPRINT = 'Musical Groove·LyHN·JavaLyHn·© 2026·all-rights-reserved';
 
 const SIG_CSS = `
   .lyhn-sig{position:fixed;left:18px;top:10px;z-index:2147483646;cursor:pointer;user-select:none;
@@ -46,7 +46,7 @@ export function createSignature({ onToggle }) {
   } catch { /* already defined */ }
   try {
     // eslint-disable-next-line no-console
-    console.log('%c♪ 声音星球  © 2026 LyHN — all rights reserved',
+    console.log('%c♪ Musical Groove  © 2026 LyHN — all rights reserved',
       'color:#5FD0E0;font:600 13px -apple-system,sans-serif');
   } catch { /* no console */ }
 

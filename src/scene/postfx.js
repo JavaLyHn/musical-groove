@@ -1,5 +1,5 @@
 /*!
- * 声音星球 — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
+ * Musical Groove — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
  * The "LyHN" watermark below is composited INTO the final WebGL image (not a DOM overlay).
  * It is part of the render and may not be removed or disabled. See LICENSE.
  */

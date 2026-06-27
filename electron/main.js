@@ -65,7 +65,7 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }) },
-    { label: '退出声音星球', click: () => app.quit() },
+    { label: '退出 Musical Groove', click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
 }
@@ -78,7 +78,7 @@ function createTray() {
     console.log('[tray] image empty?', img.isEmpty(), 'size', JSON.stringify(img.getSize()));
     tray = new Tray(img);
     tray.setTitle('♪');
-    tray.setToolTip('声音星球');
+    tray.setToolTip('Musical Groove');
     buildTrayMenu();
     console.log('[tray] created');
   } catch (e) {

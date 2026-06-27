@@ -1,5 +1,5 @@
 /*!
- * 声音星球 (Sound Planet) — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
+ * Musical Groove — © 2026 LyHN (github.com/JavaLyHn). All rights reserved.
  * Proprietary. The "LyHN" signature (signature.js) and the in-canvas watermark (postfx.js)
  * are the author's attribution marks and must not be removed or disabled. See LICENSE.
  */
@@ -114,14 +114,14 @@ async function connectRealAudio() {
     const sys = await createSystemAudioSource();
     sys.update(0);
     audio = sys;
-    console.log('[声音星球] audio connected:', sys.label);
+    console.log('[Musical Groove] audio connected:', sys.label);
     return '● ' + sys.label;
   }
   const deviceId = await pickLoopbackDeviceId();
   const web = await createWebAudioSource({ deviceId });
   web.update(0);
   audio = web;
-  console.log('[声音星球] audio connected:', web.label, '| loopback device:', !!deviceId);
+  console.log('[Musical Groove] audio connected:', web.label, '| loopback device:', !!deviceId);
   return deviceId ? '● ' + web.label : '● ' + web.label + '（建议用 BlackHole 取系统声音）';
 }
 const controls = createAudioControls({ onConnect: connectRealAudio });

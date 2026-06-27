@@ -1,4 +1,4 @@
-# 声音星球 · Music Reactor Wallpaper
+# Musical Groove · Music Reactor Wallpaper
 
 A WebGL music visualizer (Three.js) for use as a macOS wallpaper. A curved dome
 of segmented "block" pillars bounces to audio, with a glowing central reactor core.
