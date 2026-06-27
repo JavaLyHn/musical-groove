@@ -10,7 +10,7 @@ describe('console schema ↔ presets targets', () => {
     expect(schemaKeys).toEqual(pKeys);
   });
 
-  it('has 43 controls grouped under PERFORMANCE + SETUP', () => {
+  it('has 45 controls grouped under PERFORMANCE + SETUP', () => {
     expect(allControls().length).toBe(45);
     expect(SECTIONS.map((s) => s.id)).toEqual(['performance', 'setup']);
   });
