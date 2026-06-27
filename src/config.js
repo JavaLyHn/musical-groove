@@ -146,6 +146,7 @@ export const CONFIG = {
     count: 420, life: 2.4, size: 2.2,
     rise: 6.0, spread: 11.0, spawnR: 38, spawnYmin: 5, spawnYmax: 17,
     meteorTrail: 16, meteorSpeed: 72,
+    meteorBurstChance: 0.3, meteorBurstMax: 2, // ~30% of meteor events fan out into a 2-3 shower (variety)
   },
   // ambient MOTES: a sparse, slow-drifting dust of faint COOL points floating over the dark
   // field — "能量在场" without clutter. Reserved from the head of the spark pool (the first

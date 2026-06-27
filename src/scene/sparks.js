@@ -67,24 +67,36 @@ export function createSparks() {
   let moClock = 0;
 
   let cursor = M; // meteor write cursor, confined to [M, N)
+  const trailPos = new Float32Array(N);   // per meteor-point: 0 = head .. 1 = tail (white->cyan + fade)
+  const headBright = new Float32Array(N); // per-meteor brightness scale (so they aren't all equal)
   // Launch a meteor: a streak of points sharing ONE velocity (so it moves rigidly),
   // started high near the rim and arcing across + down. The tail is staggered "older"
-  // (dimmer) and the head skips the ember pop-in so it reads bright immediately.
+  // (dimmer) and the head skips the ember pop-in so it reads bright immediately. Every
+  // meteor randomizes its length, speed, fall angle, brightness, and AIM POINT (a random
+  // spot near — not dead — centre) so no two look or travel the same (cures the monotony).
   function spawnMeteor() {
     const ang = Math.random() * Math.PI * 2;
     const startR = cfg.spawnR * (1.6 + Math.random() * 0.8);
     const sx = Math.cos(ang) * startR;
     const sz = Math.sin(ang) * startR;
     const sy = cfg.spawnYmax * (1.6 + Math.random() * 1.2);
-    const len = Math.hypot(sx, sz) + 1e-3;
-    const speed = cfg.meteorSpeed * (0.8 + 0.5 * Math.random());
-    const vx = (-sx / len) * speed;        // travel toward (and past) the centre
-    const vz = (-sz / len) * speed;
-    const vy = -cfg.meteorSpeed * 0.35;     // arc downward
-    for (let k = 0; k < cfg.meteorTrail; k++) {
+    // aim at a RANDOM point near the centre (not dead centre) -> some cross diagonally,
+    // some graze the edge, instead of all converging on the middle.
+    const tx = (Math.random() - 0.5) * 80;
+    const tz = (Math.random() - 0.5) * 80;
+    const dx = tx - sx, dz = tz - sz;
+    const len = Math.hypot(dx, dz) + 1e-3;
+    const speed = cfg.meteorSpeed * (0.7 + Math.random() * 0.9);   // wider speed spread
+    const vx = (dx / len) * speed;
+    const vz = (dz / len) * speed;
+    const vy = -cfg.meteorSpeed * (0.12 + Math.random() * 0.4);    // fall angle: some steep, some shallow
+    const trail = Math.max(4, Math.round(cfg.meteorTrail * (0.6 + Math.random() * 0.9))); // ~10..22 points
+    const bright = 0.7 + Math.random() * 0.7;                      // per-meteor brightness
+    const mLife = cfg.life * (0.85 + Math.random() * 0.4);        // per-meteor lifespan (kept uniform across its trail)
+    for (let k = 0; k < trail; k++) {
       const i = cursor;
       cursor = cursor + 1 >= N ? M : cursor + 1; // wrap within the meteor region [M, N)
-      const back = k / cfg.meteorTrail;      // 0 = head, ~1 = tail
+      const back = k / trail;                // 0 = head, ~1 = tail
       positions[i * 3] = sx - vx * back * 0.05;     // tail trails behind the head along -v
       positions[i * 3 + 1] = sy - vy * back * 0.05;
       positions[i * 3 + 2] = sz - vz * back * 0.05;
@@ -92,7 +104,9 @@ export function createSparks() {
       vel[i * 3 + 1] = vy;
       vel[i * 3 + 2] = vz;
       age[i] = (0.16 + back * 0.45) * cfg.life; // skip the pop-in; tail starts dimmer
-      life[i] = cfg.life;
+      life[i] = mLife;
+      trailPos[i] = back;
+      headBright[i] = bright;
     }
   }
 
@@ -111,8 +125,16 @@ export function createSparks() {
     }
 
     // rare, ceremonial meteors only: the big-onset trigger carries a long cooldown,
-    // so it's the occasional shooting star — not a constant spark cloud.
-    if (meteorTrigger.fire(onset) > 0) spawnMeteor();
+    // so it's the occasional shooting star — not a constant spark cloud. Sometimes a
+    // single fire fans out into a small 2-3 shower so the rhythm isn't a metronomic
+    // "one... one... one".
+    if (meteorTrigger.fire(onset) > 0) {
+      spawnMeteor();
+      if (Math.random() < cfg.meteorBurstChance) {
+        const extra = 1 + Math.floor(Math.random() * cfg.meteorBurstMax);
+        for (let e = 0; e < extra; e++) spawnMeteor();
+      }
+    }
 
     for (let i = M; i < N; i++) {
       if (age[i] >= life[i]) {                     // dead -> invisible
@@ -128,11 +150,13 @@ export function createSparks() {
       positions[i * 3] += vel[i * 3] * dt;
       positions[i * 3 + 1] += vel[i * 3 + 1] * dt;
       positions[i * 3 + 2] += vel[i * 3 + 2] * dt;
-      // pop in fast, fade out slow (ember)
-      const a = Math.min(1, tn * 6) * (1 - tn) * (1 - tn);
-      colors[i * 3] = a * 0.85;                    // cool white
-      colors[i * 3 + 1] = a * 0.92;
-      colors[i * 3 + 2] = a * 1.0;
+      // pop in fast, fade out slow (ember), scaled by this meteor's own brightness
+      const a = Math.min(1, tn * 6) * (1 - tn) * (1 - tn) * headBright[i];
+      // colour gradient ALONG the trail: white-hot head -> cyan tail
+      const bk = trailPos[i];                      // 0 = head .. 1 = tail
+      colors[i * 3] = a * (0.85 - 0.48 * bk);      // R: 0.85 (head) -> 0.37 (cyan tail)
+      colors[i * 3 + 1] = a * (0.92 - 0.07 * bk);  // G: 0.92 -> 0.85
+      colors[i * 3 + 2] = a * 1.0;                 // B stays high (cool)
     }
     geo.attributes.position.needsUpdate = true;
     geo.attributes.color.needsUpdate = true;
