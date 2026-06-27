@@ -11,7 +11,12 @@
     <meta name="copyright" content="© 2026 LyHN. All rights reserved." />
     <title>Musical Groove</title>
     <style>
-      html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+      /* The whole app is an ambient, read-only display — no text anywhere is selectable.
+         Only genuine text inputs (e.g. the console's preset-rename field) stay typeable. */
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d;
+        -webkit-user-select: none; -moz-user-select: none; user-select: none;
+        -webkit-tap-highlight-color: transparent; }
+      input, textarea { -webkit-user-select: text; -moz-user-select: text; user-select: text; }
       #app { display: block; width: 100vw; height: 100vh; }
     </style>
   </head>
