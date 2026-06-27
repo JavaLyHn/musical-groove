@@ -14,7 +14,9 @@ catch (e) { console.log('[wallpaper] native addon unavailable:', e && e.message 
 function setWallpaperLevel(w) {
   try { if (nativeWallpaper) nativeWallpaper.setDesktopLevel(w.getNativeWindowHandle()); }
   catch (e) { console.log('[wallpaper] setDesktopLevel failed:', e && e.message ? e.message : e); }
-  w.setIgnoreMouseEvents(true); // clicks pass through to the Finder desktop/icons
+  // Click-through to the Finder desktop/icons, but FORWARD mouse-move so the renderer can detect
+  // when the pointer is over the now-playing card and request a momentary clickable region.
+  w.setIgnoreMouseEvents(true, { forward: true });
 }
 function setNormalLevel(w) {
   try { if (nativeWallpaper) nativeWallpaper.setNormalLevel(w.getNativeWindowHandle()); }
@@ -186,6 +188,12 @@ async function createWindow() {
   });
   win.webContents.on('console-message', (e) => { if (e && e.message) console.log('[renderer]', e.message); });
   ipcMain.on('wallpaper:exit-settings', () => { if (mode === 'settings') setMode('wallpaper'); });
+  // In wallpaper mode, let the renderer make the window momentarily clickable while the pointer is
+  // over an interactive overlay (the now-playing card); otherwise keep click-through. No-op in
+  // settings mode, where the whole window is already interactive.
+  ipcMain.on('wallpaper:set-interactive', (_e, on) => {
+    if (win && mode === 'wallpaper') win.setIgnoreMouseEvents(!on, { forward: true });
+  });
   // macOS: explicitly request mic access from the main process — the renderer's getUserMedia
   // alone often won't trigger the TCC prompt. Logs the status so we can diagnose.
   try {
