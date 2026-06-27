@@ -100,6 +100,21 @@ export function applyLast(refs) {
   return last;
 }
 
+// Unsaved-changes tracking: the last "saved/applied" snapshot, as a stable JSON string. The
+// console's exit guard compares the live snapshot against this to decide whether to prompt.
+/** @type {string | null} */
+let _baseline = null;
+
+/** Mark the current live state as the clean baseline (after load / save / apply). @param {Refs} refs */
+export function markClean(refs) { _baseline = JSON.stringify(snapshot(refs)); }
+
+/** Whether the live state has drifted from the baseline. No baseline yet => clean.
+ *  @param {Refs} refs @returns {boolean} */
+export function isDirty(refs) {
+  if (_baseline === null) return false;
+  return JSON.stringify(snapshot(refs)) !== _baseline;
+}
+
 /** The stableKeys a snapshot captures — for the console schema consistency test.
  *  Uses empty refs because `targets()` only stores the object refs, not their values.
  *  @returns {string[]} */

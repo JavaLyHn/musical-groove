@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { applyLast } from './presets.js';
+import { applyLast, markClean } from './presets.js';
 import { applyQuality } from './quality.js';
 // Live quality override for finding a machine's sweet spot: ?q=low|mid|high
 const _q = new URLSearchParams(location.search).get('q');
@@ -77,6 +77,7 @@ const { composer, setSize, update: updateFx } = createComposer(renderer, scene, 
 // Apply the last-saved version at load (no panel needed), so the wallpaper reopens with the
 // look you saved. Values land in CONFIG / rig.state / renderer, which the loop reads live.
 if (applyLast({ rig, renderer })) rig.apply();
+markClean({ rig, renderer }); // baseline = the look at load (saved version or defaults) for the unsaved-changes guard
 
 // LyHN signature (top-left): click it to toggle the live console. The console module is
 // dynamically imported on first open, so it's code-split out of the wallpaper bundle.
