@@ -61,8 +61,7 @@ export function createConsole({ rig, renderer, onClose }) {
   let mt = 0; /** @type {number} */ let raf = 0;
   function animate() {
     mt += 0.05;
-    let sum = 0;
-    bars.forEach((b, i) => { const h = 6 + (Math.sin(mt * 1.7 + i * 0.5) * 0.5 + 0.5) * 15; b.style.height = h.toFixed(1) + 'px'; b.style.opacity = (0.5 + 0.5 * Math.sin(mt + i)).toFixed(2); sum += h; });
+    bars.forEach((b, i) => { const h = 6 + (Math.sin(mt * 1.7 + i * 0.5) * 0.5 + 0.5) * 15; b.style.height = h.toFixed(1) + 'px'; b.style.opacity = (0.5 + 0.5 * Math.sin(mt + i)).toFixed(2); });
     lvEl.textContent = (0.4 + 0.4 * (Math.sin(mt) * 0.5 + 0.5)).toFixed(2);
     raf = requestAnimationFrame(animate);
   }
