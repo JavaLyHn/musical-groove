@@ -6,6 +6,7 @@
 // are decorative chrome — not wired to audio (spec §9). Lazily imported by main.js on first open.
 import './console.css';
 import { CONFIG } from '../config.js';
+import { isDirty } from '../presets.js';
 import { SECTIONS } from './schema.js';
 import { makeSlider, makeToggle, makeDial, makeColor } from './widgets.js';
 import { createPresetsBar } from './presetsBar.js';
@@ -128,6 +129,29 @@ export function createConsole({ rig, renderer, onClose }) {
   copy.innerHTML = '© 2026 <b>LyHN</b> · Musical Groove — 版权所有 · All rights reserved';
   wrap.append(foot, copy);
 
+  // ---- unsaved-changes exit prompt: shown when closing the console with dirty params ----
+  const promptEl = document.createElement('div'); promptEl.className = 'savemodal hidden';
+  const card = document.createElement('div'); card.className = 'card';
+  const h4 = document.createElement('h4'); h4.textContent = '有未保存的修改';
+  const ptxt = document.createElement('p'); ptxt.textContent = '关闭前是否保存当前参数?';
+  const acts = document.createElement('div'); acts.className = 'acts';
+  const saveExit = document.createElement('button'); saveExit.className = 'pm-save'; saveExit.textContent = '保存并退出';
+  const discardExit = document.createElement('button'); discardExit.className = 'pm-discard'; discardExit.textContent = '不保存退出';
+  const cancelClose = document.createElement('button'); cancelClose.className = 'pm-cancel'; cancelClose.textContent = '取消';
+  acts.append(saveExit, discardExit, cancelClose);
+  card.append(h4, ptxt, acts); promptEl.appendChild(card); root.appendChild(promptEl);
+
+  const closePrompt = () => promptEl.classList.add('hidden');
+  const openPrompt = () => promptEl.classList.remove('hidden');
+  const isPromptOpen = () => !promptEl.classList.contains('hidden');
+  /** Close the console, but if params are dirty, ask to save first. */
+  function requestClose() { if (isDirty(refs)) openPrompt(); else { hide(); onClose(); } }
+
+  saveExit.addEventListener('click', () => { presetsBar.saveCurrent(); closePrompt(); hide(); onClose(); });
+  discardExit.addEventListener('click', () => { closePrompt(); hide(); onClose(); });
+  cancelClose.addEventListener('click', closePrompt);
+  promptEl.addEventListener('click', (e) => { if (e.target === promptEl) closePrompt(); }); // click backdrop = cancel
+
   function refreshAll() { for (const s of syncs) s.sync(); applyAccent(getAccent()); }
   function resetAll() {
     for (const sec of SECTIONS) for (const g of sec.groups) for (const c of g.controls) {
@@ -137,12 +161,16 @@ export function createConsole({ rig, renderer, onClose }) {
   }
 
   perfBtn.addEventListener('click', () => { root.classList.toggle('perfmode'); perfBtn.classList.toggle('on'); });
-  doneBtn.addEventListener('click', () => { hide(); onClose(); });
+  doneBtn.addEventListener('click', requestClose);
   /** @param {KeyboardEvent} e */
-  const onKey = (e) => { if (e.key === 'Escape') { hide(); onClose(); } };
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    if (isPromptOpen()) closePrompt();  // ESC inside the prompt = 取消(留在面板)
+    else requestClose();
+  };
 
   function show() { root.classList.add('open'); document.addEventListener('keydown', onKey); refreshAll(); if (!raf) animate(); }
-  function hide() { root.classList.remove('open'); document.removeEventListener('keydown', onKey); cancelAnimationFrame(raf); raf = 0; }
+  function hide() { root.classList.remove('open'); document.removeEventListener('keydown', onKey); cancelAnimationFrame(raf); raf = 0; closePrompt(); }
   function toggle() { if (root.classList.contains('open')) hide(); else show(); }
 
   document.body.appendChild(root);
