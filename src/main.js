@@ -116,18 +116,25 @@ initElectronMode({
 async function connectRealAudio() {
   const inElectron = !!(window.__wallpaper__ && window.__wallpaper__.isElectron);
   if (inElectron) {
-    const sys = await createSystemAudioSource();
-    sys.update(0);
-    audio = sys;
-    console.log('[Musical Groove] audio connected:', sys.label);
-    return '● ' + sys.label;
+    try {
+      const sys = await createSystemAudioSource();    // ScreenCaptureKit loopback (needs Screen Recording)
+      sys.update(0);
+      audio = sys;
+      console.log('[Musical Groove] audio connected:', sys.label);
+      return '● ' + sys.label;
+    } catch (e) {
+      // A dev/ad-hoc Electron often can't bind Screen Recording, so the system loopback fails.
+      // Fall back to a BlackHole-style loopback INPUT device (needs only mic permission, already
+      // granted) so the wallpaper still reacts — provided the output is routed through it.
+      console.warn('[Musical Groove] system loopback unavailable, trying a loopback input device:', e && e.message ? e.message : e);
+    }
   }
   const deviceId = await pickLoopbackDeviceId();
   const web = await createWebAudioSource({ deviceId });
   web.update(0);
   audio = web;
   console.log('[Musical Groove] audio connected:', web.label, '| loopback device:', !!deviceId);
-  return deviceId ? '● ' + web.label : '● ' + web.label + '（建议用 BlackHole 取系统声音）';
+  return deviceId ? '● ' + web.label : '● ' + web.label + '（把输出设为含 BlackHole 的「多输出设备」才能取到系统声音）';
 }
 const controls = createAudioControls({ onConnect: connectRealAudio });
 // After the first permission grant, auto-connect on every load (no click needed) —
