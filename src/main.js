@@ -167,7 +167,7 @@ function frame() {
   field.update(spectrum, levels, level, beat, { warmth, brightness, sharpness }, dt, onset, kickPunch);
   core.update(levels.bass, dt, field.getIdleMix());
   stars.update(dt);
-  sparks.update(onset, dt);
+  sparks.update(onset, dt, field.getIdleMix());
   lyrics.update(level, onset, dt);
   if (beat.kick) rig.kick(beat.kick); // beat-driven camera punch (震动感)
   rig.update(dt, field.getIdleMix());

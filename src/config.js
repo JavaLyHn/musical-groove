@@ -111,6 +111,10 @@ export const CONFIG = {
     // timer (the "涟漪一扫而过" look), instead of just a static swell.
     idleRippleEvery: 2.6,    // seconds between standby ripple sweeps
     idleRippleStrength: 1.0,// strength of each standby ripple (scaled by how idle it is)
+    // STANDBY meteors: in silence there's no audio onset, so drop a gentle single meteor on a
+    // timer. idleMix-gated (0 = full music) so music mode never self-spawns one (待机红线).
+    idleMeteor: true,       // standby self-meteors on/off
+    idleMeteorEvery: 9.0,   // seconds between standby meteors (calm + sparse)
   },
 
   // RIPPLES are a first-class reaction now: an independent (sensitivity, cooldown) pair

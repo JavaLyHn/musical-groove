@@ -69,12 +69,15 @@ export function createSparks() {
   let cursor = M; // meteor write cursor, confined to [M, N)
   const trailPos = new Float32Array(N);   // per meteor-point: 0 = head .. 1 = tail (white->cyan + fade)
   const headBright = new Float32Array(N); // per-meteor brightness scale (so they aren't all equal)
+  let idleMeteorT = 0; // standby self-meteor timer (seconds since the last idle meteor)
   // Launch a meteor: a streak of points sharing ONE velocity (so it moves rigidly),
   // started high near the rim and arcing across + down. The tail is staggered "older"
   // (dimmer) and the head skips the ember pop-in so it reads bright immediately. Every
   // meteor randomizes its length, speed, fall angle, brightness, and AIM POINT (a random
   // spot near — not dead — centre) so no two look or travel the same (cures the monotony).
-  function spawnMeteor() {
+  function spawnMeteor(gentle = false) {
+    const sMul = gentle ? 0.8 : 1.0;   // gentler standby meteors: slower
+    const bMul = gentle ? 0.55 : 1.0;  // gentler standby meteors: dimmer
     const ang = Math.random() * Math.PI * 2;
     const startR = cfg.spawnR * (1.6 + Math.random() * 0.8);
     const sx = Math.cos(ang) * startR;
@@ -86,12 +89,12 @@ export function createSparks() {
     const tz = (Math.random() - 0.5) * 80;
     const dx = tx - sx, dz = tz - sz;
     const len = Math.hypot(dx, dz) + 1e-3;
-    const speed = cfg.meteorSpeed * (0.7 + Math.random() * 0.9);   // wider speed spread
+    const speed = cfg.meteorSpeed * (0.7 + Math.random() * 0.9) * sMul;   // wider speed spread
     const vx = (dx / len) * speed;
     const vz = (dz / len) * speed;
-    const vy = -cfg.meteorSpeed * (0.12 + Math.random() * 0.4);    // fall angle: some steep, some shallow
+    const vy = -cfg.meteorSpeed * (0.12 + Math.random() * 0.4) * sMul;    // fall angle: some steep, some shallow
     const trail = Math.max(4, Math.round(cfg.meteorTrail * (0.6 + Math.random() * 0.9))); // ~10..22 points
-    const bright = 0.7 + Math.random() * 0.7;                      // per-meteor brightness
+    const bright = (0.7 + Math.random() * 0.7) * bMul;            // per-meteor brightness
     const mLife = cfg.life * (0.85 + Math.random() * 0.4);        // per-meteor lifespan (kept uniform across its trail)
     for (let k = 0; k < trail; k++) {
       const i = cursor;
@@ -111,7 +114,7 @@ export function createSparks() {
   }
 
   const meteorTrigger = createTrigger(CONFIG.meteor);
-  function update(onset, dt) {
+  function update(onset, dt, idleMix = 0) {
     // ambient motes: slow drifting cool dust, gently twinkling — "energy in the space".
     moClock += dt;
     for (let i = 0; i < M; i++) {
@@ -134,6 +137,18 @@ export function createSparks() {
         const extra = 1 + Math.floor(Math.random() * cfg.meteorBurstMax);
         for (let e = 0; e < extra; e++) spawnMeteor();
       }
+    }
+
+    // standby self-meteors: no audio onset in silence, so drop a gentle single meteor on a
+    // timer. idleMix-gated (0 = full music) so music mode never self-spawns one (待机红线).
+    if (CONFIG.motion.idleMeteor && idleMix > 0.35) {
+      idleMeteorT += dt;
+      if (idleMeteorT >= CONFIG.motion.idleMeteorEvery) {
+        idleMeteorT = 0;
+        spawnMeteor(true);
+      }
+    } else {
+      idleMeteorT = 0; // back to music (or sub-threshold): full interval after re-entering idle
     }
 
     for (let i = M; i < N; i++) {
