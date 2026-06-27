@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSimulatedAudioSource } from '../src/audioSource.js';
+import { createSimulatedAudioSource, createSilentAudioSource } from '../src/audioSource.js';
 import { CONFIG } from '../src/config.js';
 
 describe('createSimulatedAudioSource', () => {
@@ -35,5 +35,19 @@ describe('createSimulatedAudioSource', () => {
     const b = createSimulatedAudioSource();
     a.update(0.3); b.update(0.3);
     expect(Array.from(a.getSpectrum())).toEqual(Array.from(b.getSpectrum()));
+  });
+});
+
+describe('createSilentAudioSource', () => {
+  it('returns an all-zero audioBins-length spectrum and zero levels (so the field stays in 待机)', () => {
+    const a = createSilentAudioSource();
+    a.update(0.5); // no-op; must not introduce energy
+    const s = a.getSpectrum();
+    expect(s.length).toBe(CONFIG.audioBins);
+    for (const v of s) expect(v).toBe(0);
+    const { bass, mid, treble } = a.getLevels();
+    expect(bass).toBe(0);
+    expect(mid).toBe(0);
+    expect(treble).toBe(0);
   });
 });

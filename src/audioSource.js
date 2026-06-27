@@ -42,3 +42,19 @@ export function createSimulatedAudioSource(bands = CONFIG.audioBins) {
     },
   };
 }
+
+// A truly SILENT source: an all-zero spectrum. This is the default before any real audio
+// connects, so "no audio connected" rests in the standby (待机) state — `level` stays below
+// idleSilence, idleMix holds at 1 — instead of the synthetic source faking a constant dance.
+/**
+ * @param {number} [bands]
+ * @returns {import('./types.js').AudioSource}
+ */
+export function createSilentAudioSource(bands = CONFIG.audioBins) {
+  const spectrum = new Float32Array(bands); // all zeros, never mutated
+  return {
+    update() {},
+    getSpectrum() { return spectrum; },
+    getLevels() { return { bass: 0, mid: 0, treble: 0 }; },
+  };
+}

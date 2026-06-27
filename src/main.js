@@ -19,7 +19,7 @@ import { createStarfield } from './scene/starfield.js';
 import { createSparks } from './scene/sparks.js';
 import { createAtmosphere } from './scene/atmosphere.js';
 import { createCameraRig } from './scene/cameraRig.js';
-import { createSimulatedAudioSource } from './audioSource.js';
+import { createSimulatedAudioSource, createSilentAudioSource } from './audioSource.js';
 import { createAudioShaper } from './util/audioShaper.js';
 import { createBeatDetector } from './util/beatDetector.js';
 import { createWebAudioSource, createSystemAudioSource, pickLoopbackDeviceId } from './webAudioSource.js';
@@ -35,8 +35,12 @@ const renderer = createRenderer(canvas);
 const camera = createCamera();
 const scene = createScene();
 
-// `audio` starts simulated and is swapped to the real source once connected.
-let audio = createSimulatedAudioSource();
+// `audio` starts SILENT so an unconnected wallpaper rests in 待机 (standby) instead of faking a
+// dance; it's swapped to the real source once connected. `?demo` brings back the synthetic
+// dancing spectrum for showcasing the motion with no audio setup.
+let audio = new URLSearchParams(location.search).has('demo')
+  ? createSimulatedAudioSource()
+  : createSilentAudioSource();
 // The shaper turns whatever source is live into a per-band-normalized drive (so
 // every ring dances on its own band) + an overall amplitude level.
 const shaper = createAudioShaper(CONFIG.audioBins, CONFIG.bands);
