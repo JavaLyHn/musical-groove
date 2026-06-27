@@ -169,7 +169,7 @@ function frame() {
   sparks.update(onset, dt);
   lyrics.update(level, onset, dt);
   if (beat.kick) rig.kick(beat.kick); // beat-driven camera punch (震动感)
-  rig.update(dt);
+  rig.update(dt, field.getIdleMix());
   updateFx(dt, levels.bass, kickPunch);
   composer.render();
 }

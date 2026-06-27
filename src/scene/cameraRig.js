@@ -25,10 +25,11 @@ export function createCameraRig(camera, scene) {
 
   let kickE = 0; // beat-kick energy (decays each frame); drives a zoom + vibration punch
   let kt = 0;    // phase clock for the vibration (reset on each fresh kick so it starts clean)
+  let idleM = 0; // 0=music, 1=standby; adds a faint camera drift + set by update()
 
   function apply() {
     const pitch = (s.pitchDeg * Math.PI) / 180;
-    const az = (s.azimuthDeg * Math.PI) / 180; // off-axis a few degrees so the centre grout line isn't viewed edge-on
+    const az = (s.azimuthDeg * Math.PI) / 180 + idleM * 0.021 * Math.sin(kt * 0.05); // + standby micro-drift (~1.2deg, very slow)
     const k = kickE * (CONFIG.camera.beatKick || 0); // 0 = no shake
     const horiz = s.distance * Math.cos(pitch);
     camera.fov = s.fov * (1 - 0.05 * k);             // zoom-PUNCH inward on the beat
@@ -38,7 +39,7 @@ export function createCameraRig(camera, scene) {
     camera.lookAt(0, s.targetY, 0);
     if (scene && scene.fog) {
       scene.fog.near = s.distance * 0.92; // just in front of the core stays sharp
-      scene.fog.far = s.distance * 1.75;  // the back edge of the field recedes to deep space
+      scene.fog.far = s.distance * (CONFIG.fog.farMult ?? 1.75);  // farMult: smaller -> far field fades to deep space sooner
     }
   }
   apply();
@@ -80,8 +81,9 @@ export function createCameraRig(camera, scene) {
 
   // Slow auto-spin: advance the azimuth by orbitSpeed (rad/s) and re-apply. apply() also
   // runs every frame so live edits to `state` (from the ?gui panel) take effect at once.
-  /** @param {number} dt */
-  function update(dt) {
+  /** @param {number} dt @param {number} [idleMix] 0=music, 1=standby (adds a faint drift) */
+  function update(dt, idleMix = 0) {
+    idleM = idleMix;
     if (s.orbitSpeed) s.azimuthDeg += s.orbitSpeed * dt * (180 / Math.PI);
     kt += dt;
     kickE *= Math.max(0, 1 - 11 * dt); // fast decay -> a ~0.1s punch, not a sustained wobble
