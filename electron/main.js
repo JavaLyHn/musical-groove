@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { createAppServer } from './server.js';
 
 const require = createRequire(import.meta.url);
@@ -22,24 +23,33 @@ function setNormalLevel(w) {
   w.focus();
 }
 
-// Hide/show ALL macOS desktop clutter for a clean wallpaper canvas: Finder icons/files
-// (com.apple.finder CreateDesktop) AND desktop widgets (com.apple.WindowManager
-// Standard/StageManagerHideWidgets — widgets are a separate process, not Finder). The wallpaper
-// hides them by default; the tray toggles it; quitting restores the user's ORIGINAL settings
-// (captured once below) so nothing is left altered. Global system settings; macOS only.
-/** @param {string} domain @param {string} key @param {string} fallback */
-function readDefault(domain, key, fallback) {
+// Hide macOS desktop clutter (Finder icons/files via com.apple.finder CreateDesktop AND desktop
+// widgets via com.apple.WindowManager Standard/StageManagerHideWidgets) for a clean wallpaper
+// canvas, and ALWAYS put it back. These are GLOBAL system settings that outlive the app, so the
+// restore must be bulletproof: we persist the user's TRUE originals to a flag file the instant we
+// hide, restore on every exit path (quit / Ctrl-C / SIGTERM), and if a run ever dies without
+// restoring, the next launch reads the flag (not our own hidden state) and restores from it.
+// macOS only.
+function readDefault(/** @type {string} */ domain, /** @type {string} */ key, /** @type {string} */ fallback) {
   try { return execSync(`defaults read ${domain} ${key} 2>/dev/null`).toString().trim(); }
   catch { return fallback; }
 }
-const _origDesktop = {
-  icons: readDefault('com.apple.finder', 'CreateDesktop', '1'),                 // unset/1 = icons shown
-  stdWidgets: readDefault('com.apple.WindowManager', 'StandardHideWidgets', '0'),
-  stageWidgets: readDefault('com.apple.WindowManager', 'StageManagerHideWidgets', '0'),
-};
+let _flagPath = '';   // userData/desktop-restore.json — exists iff WE currently have the desktop hidden
+let _orig = { icons: '1', stdWidgets: '0', stageWidgets: '0' }; // user's true originals
 let desktopHidden = false;
-function setDesktopHidden(hidden) {
-  desktopHidden = hidden;
+let _restored = true; // guards restore so the several exit signals each run it at most once
+
+// Capture the user's originals: prefer a leftover flag (a prior run hid + maybe didn't restore, so
+// the live system state could be OUR hidden state, not theirs); otherwise read the live state.
+function loadDesktopOriginals() {
+  try { _orig = JSON.parse(readFileSync(_flagPath, 'utf8')); return; } catch { /* no flag */ }
+  _orig = {
+    icons: readDefault('com.apple.finder', 'CreateDesktop', '1'),                 // unset/1 = icons shown
+    stdWidgets: readDefault('com.apple.WindowManager', 'StandardHideWidgets', '0'),
+    stageWidgets: readDefault('com.apple.WindowManager', 'StageManagerHideWidgets', '0'),
+  };
+}
+function applyDesktop(/** @type {boolean} */ hidden) {
   const b = (/** @type {boolean} */ v) => (v ? 'true' : 'false');
   try {
     if (hidden) {
@@ -47,13 +57,30 @@ function setDesktopHidden(hidden) {
       execSync('defaults write com.apple.WindowManager StandardHideWidgets -bool true');     // hide desktop widgets
       execSync('defaults write com.apple.WindowManager StageManagerHideWidgets -bool true');
     } else { // restore exactly what the user had
-      execSync(`defaults write com.apple.finder CreateDesktop -bool ${b(_origDesktop.icons !== '0')}`);
-      execSync(`defaults write com.apple.WindowManager StandardHideWidgets -bool ${b(_origDesktop.stdWidgets === '1')}`);
-      execSync(`defaults write com.apple.WindowManager StageManagerHideWidgets -bool ${b(_origDesktop.stageWidgets === '1')}`);
+      execSync(`defaults write com.apple.finder CreateDesktop -bool ${b(_orig.icons !== '0')}`);
+      execSync(`defaults write com.apple.WindowManager StandardHideWidgets -bool ${b(_orig.stdWidgets === '1')}`);
+      execSync(`defaults write com.apple.WindowManager StageManagerHideWidgets -bool ${b(_orig.stageWidgets === '1')}`);
     }
-    execSync('killall Finder');        // relaunch Finder so icon change applies now
-    execSync('killall WindowManager'); // relaunch WindowManager so widget change applies now
-  } catch (e) { console.log('[clean-desktop] toggle failed:', e && e.message ? e.message : e); }
+    execSync('killall Finder');        // relaunch Finder so the icon change applies now
+    execSync('killall WindowManager'); // relaunch WindowManager so the widget change applies now
+  } catch (e) { console.log('[clean-desktop] apply failed:', e && e.message ? e.message : e); }
+}
+function setDesktopHidden(/** @type {boolean} */ hidden) {
+  desktopHidden = hidden;
+  if (hidden) {
+    try { writeFileSync(_flagPath, JSON.stringify(_orig)); } catch (e) { console.log('[clean-desktop] flag write failed:', e && e.message ? e.message : e); }
+    _restored = false;
+    applyDesktop(true);
+  } else {
+    restoreDesktop();
+  }
+}
+// Idempotent: restores the user's originals and clears the flag, at most once per hidden session.
+function restoreDesktop() {
+  if (_restored) return;
+  _restored = true;
+  applyDesktop(false);
+  try { rmSync(_flagPath, { force: true }); } catch { /* */ }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -179,7 +206,19 @@ async function createWindow() {
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); } else {
-  app.whenReady().then(() => { createWindow(); setDesktopHidden(true); }); // clean canvas: hide desktop icons + widgets by default
+  app.whenReady().then(() => {
+    _flagPath = join(app.getPath('userData'), 'desktop-restore.json');
+    loadDesktopOriginals();   // capture true originals, or recover them from a leftover flag
+    createWindow();
+    setDesktopHidden(true);   // clean canvas: hide desktop icons + widgets by default
+  });
   app.on('window-all-closed', () => { /* keep running (wallpaper); quit via tray */ });
-  app.on('before-quit', async () => { setDesktopHidden(false); if (server) await server.close(); }); // restore the desktop on exit
+  // Restore on EVERY exit path so a hidden desktop is never left behind.
+  app.on('before-quit', async () => { restoreDesktop(); if (server) await server.close(); });
+  app.on('will-quit', () => restoreDesktop());
+  // Ctrl-C in the dev terminal / `kill` send a signal that skips before-quit — restore then exit.
+  const onSignal = () => { restoreDesktop(); process.exit(0); };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+  process.on('SIGHUP', onSignal);
 }
