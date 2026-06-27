@@ -182,6 +182,25 @@ async function fetchJSON(url, opts = {}) {
 
 const isSynced = (lrc) => typeof lrc === 'string' && /\[\d+:\d/.test(lrc);
 
+// Bilingual LRCs (original + translation) almost always repeat the SAME timestamp twice — the
+// original line, then the translation line right after. Keep only the FIRST line per timestamp
+// so we show the ORIGINAL exactly as the player does, never the translation. Monolingual lyrics
+// (unique timestamps) pass through unchanged. Metadata/blank lines (no timestamp) are kept.
+function stripTranslations(lrc) {
+  if (typeof lrc !== 'string') return lrc;
+  const seen = new Set();
+  const out = [];
+  for (const raw of lrc.split('\n')) {
+    const m = raw.match(/^\s*((?:\[\d+:\d+(?:[.:]\d+)?\])+)/);
+    if (!m) { out.push(raw); continue; }
+    const stamp = m[1].replace(/\s+/g, '');
+    if (seen.has(stamp)) continue; // a second line at the same timestamp = translation -> drop
+    seen.add(stamp);
+    out.push(raw);
+  }
+  return out.join('\n');
+}
+
 // Strip the decorations 汽水 adds to titles (remix/slow/(...)) so the SEARCH can find the
 // song. This only affects the query — never the lyric text we display, which is shown as-is.
 function cleanTitle(t) {
@@ -194,21 +213,27 @@ function cleanTitle(t) {
 }
 const hasCJK = (s) => /[㐀-鿿]/.test(String(s || ''));
 
-// NetEase: a search hit with ORIGINAL synced lyrics. We read only `lrc.lyric` (the original)
-// — never `tlyric` (translation) — and never judge by artist. To stay in SYNC with what's
-// actually playing, when we know the track length we PREFER the hit whose recording length
-// matches (±3s) — so a cover/remix gets ITS OWN timing-correct lyrics, not the original's
-// (whose tempo differs). If none matches the length, we still return the first synced hit.
-async function neLyric(query, wantDur = 0) {
-  const s = new URLSearchParams({ s: query, type: '1', limit: '10' });
+// NetEase: find the hit that IS the track the player is showing, then read its ORIGINAL synced
+// lyric (`lrc.lyric` only — never `tlyric`). The player gives us no song-id, so we rank the
+// search hits by how well they match the PLAYING track — artist + album + duration — and pin
+// the same recording, so its lyric equals what the app displays. Falls back to the first synced
+// hit if nothing matches strongly (so lyrics still show).
+async function neLyric(query, want = {}) {
+  const s = new URLSearchParams({ s: query, type: '1', limit: '15' });
   const sr = await fetchJSON('https://music.163.com/api/search/get?' + s, { headers: NE_HEADERS });
-  let songs = ((sr && sr.result && sr.result.songs) || []).slice(0, 10);
-  if (wantDur > 0) {
-    songs = songs
-      .map((sg, i) => ({ sg, i, near: sg.duration ? Math.abs(sg.duration / 1000 - wantDur) <= 3 : false }))
-      .sort((a, b) => (a.near === b.near ? a.i - b.i : (a.near ? -1 : 1))) // length-matched first, else relevance
-      .map((x) => x.sg);
-  }
+  let songs = ((sr && sr.result && sr.result.songs) || []).slice(0, 15);
+  const norm = (x) => String(x || '').toLowerCase().replace(/\s+/g, '');
+  const wantA = norm(want.artist), wantAl = norm(want.album), wantD = Number(want.duration) || 0;
+  songs = songs
+    .map((sg, i) => {
+      const aNames = norm((sg.artists || []).map((a) => a.name).join('/'));
+      const artistMatch = wantA && aNames.includes(wantA) ? 1 : 0;
+      const albumMatch = wantAl && sg.album && norm(sg.album.name) === wantAl ? 1 : 0;
+      const durMatch = wantD && sg.duration && Math.abs(sg.duration / 1000 - wantD) <= 3 ? 1 : 0;
+      return { sg, i, score: artistMatch * 2 + albumMatch * 2 + durMatch };
+    })
+    .sort((a, b) => (b.score - a.score) || (a.i - b.i)) // best match first; ties keep search relevance
+    .map((x) => x.sg);
   for (const sg of songs.slice(0, 8)) {
     const ly = await fetchJSON(`https://music.163.com/api/song/lyric?id=${sg.id}&lv=1&kv=0&tv=0`, { headers: NE_HEADERS });
     const lrc = ly && ly.lrc && ly.lrc.lyric; // original only, as-is
@@ -249,10 +274,11 @@ async function fetchLyrics(q) {
   // cleaned title is the fallback (finds the original) only if the raw turns up nothing.
   const titles = [...new Set([title, ct].filter(Boolean))];
   let synced = null;
+  const want = { artist, album: q.album, duration: dur };
   const tryNE = async () => {
     for (const tt of titles) {
-      if (artist) { synced = await neLyric((tt + ' ' + artist).trim(), dur); if (synced) return true; }
-      synced = await neLyric(tt, dur); if (synced) return true;
+      if (artist) { synced = await neLyric((tt + ' ' + artist).trim(), want); if (synced) return true; }
+      synced = await neLyric(tt, want); if (synced) return true;
     }
     return false;
   };
@@ -262,6 +288,7 @@ async function fetchLyrics(q) {
   };
   if (hasCJK(title) || hasCJK(artist)) { (await tryNE()) || (await tryLrc()); }
   else { (await tryLrc()) || (await tryNE()); }
+  synced = stripTranslations(synced); // ORIGINAL only — drop any translation/bilingual lines
   lyricsCache.set(key, synced);
   return synced;
 }
