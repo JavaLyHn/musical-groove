@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, session } from 'electron';
+import { app, BrowserWindow, screen, session, systemPreferences } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createAppServer } from './server.js';
@@ -28,6 +28,22 @@ async function createWindow() {
     skipTaskbar: true,
     webPreferences: { preload: join(HERE, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
+  win.webContents.on('console-message', (event, level, message) => {
+    const text = (message !== undefined) ? message : (event && event.message);
+    if (text !== undefined) console.log('[renderer]', text);
+  });
+  // macOS: explicitly request mic access from the main process — the renderer's getUserMedia
+  // alone often won't trigger the TCC prompt. Logs the status so we can diagnose.
+  try {
+    const before = systemPreferences.getMediaAccessStatus('microphone');
+    console.log('[mic] TCC status before:', before);
+    if (before !== 'granted') {
+      const ok = await systemPreferences.askForMediaAccess('microphone');
+      console.log('[mic] askForMediaAccess ->', ok, '| status now:', systemPreferences.getMediaAccessStatus('microphone'));
+    }
+  } catch (err) {
+    console.log('[mic] askForMediaAccess error:', err && err.message ? err.message : err);
+  }
   win.loadURL(server.url + '/?autoaudio');
 }
 
