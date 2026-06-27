@@ -148,13 +148,17 @@ export const SECTIONS = [
             get: () => C.field.idleNoiseSpeed, set: (r, v) => { C.field.idleNoiseSpeed = v; } },
           { key: 'core.idleBreath', kind: 'slider', label: '暗核呼吸', hint: '待机中心缓慢明灭强度(0=关)', min: 0, max: 3, def: 1.0,
             get: () => C.core.idleBreath, set: (r, v) => { C.core.idleBreath = v; } },
+          { key: 'motion.idleMeteor', kind: 'toggle', label: '待机流星', hint: '待机时是否自发流星', def: true,
+            get: () => C.motion.idleMeteor, set: (r, v) => { C.motion.idleMeteor = v; } },
+          { key: 'motion.idleMeteorEvery', kind: 'slider', label: '待机流星间隔 s', hint: '越大越稀少', min: 3, max: 30, step: 1, def: 9,
+            get: () => C.motion.idleMeteorEvery, set: (r, v) => { C.motion.idleMeteorEvery = v; } },
         ],
       },
     ],
   },
 ];
 
-/** Flattened control list (43). @returns {Control[]} */
+/** Flattened control list (45). @returns {Control[]} */
 export function allControls() {
   /** @type {Control[]} */
   const out = [];
