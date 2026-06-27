@@ -31,8 +31,16 @@ async function createWindow() {
   // permission (TCC), which the OS prompts for on first use.
   ses.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      if (!sources.length) {
+        console.log('[loopback] no screen sources — grant Screen Recording to Electron in System Settings, then relaunch');
+        callback({});
+        return;
+      }
       callback({ video: sources[0], audio: 'loopback' }); // system audio loopback (macOS ScreenCaptureKit)
-    }).catch(() => callback({}));
+    }, (err) => {
+      console.log('[loopback] getSources failed (Screen Recording likely not granted):', err && err.message ? err.message : err);
+      callback({});
+    });
   }, { useSystemPicker: false });
   const { bounds } = screen.getPrimaryDisplay();
   win = new BrowserWindow({
@@ -55,6 +63,7 @@ async function createWindow() {
   } catch (err) {
     console.log('[mic] askForMediaAccess error:', err && err.message ? err.message : err);
   }
+  console.log('[screen] TCC status:', systemPreferences.getMediaAccessStatus('screen'));
   win.loadURL(server.url + '/?autoaudio');
 }
 
