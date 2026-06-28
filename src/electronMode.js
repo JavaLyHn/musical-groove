@@ -31,6 +31,13 @@ export function initElectronMode(refs) {
   function reportHot() {
     if (!np || typeof api.setHotRect !== 'function') return;
     if (curMode !== 'wallpaper' || !np.classList.contains('show')) { api.setHotRect(null); return; }
+    if (np.classList.contains('expanded')) {
+      // While the card is open, make the WHOLE window clickable so a click anywhere reaches the page
+      // and the existing click-outside handler collapses it — matching the in-browser behaviour
+      // (otherwise an off-card click goes straight to the desktop and the card never closes).
+      api.setHotRect({ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight });
+      return;
+    }
     const r = np.getBoundingClientRect();
     api.setHotRect({ x: r.left, y: r.top, w: r.width, h: r.height });
   }
