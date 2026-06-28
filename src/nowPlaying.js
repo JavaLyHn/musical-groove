@@ -31,9 +31,11 @@ export function createNowPlaying(opts = {}) {
 
   const style = document.createElement('style');
   style.textContent = `
-    /* top offset clears the camera notch on notched Macs: prefer the OS safe-area inset, fall back
-       to --safe-top (the menu-bar/notch height the main process passes via ?safetop). */
-    .np{position:fixed;top:calc(env(safe-area-inset-top, var(--safe-top, 0px)) + 14px);left:50%;z-index:9;box-sizing:border-box;
+    /* top offset clears the camera notch on notched Macs. env(safe-area-inset-top) resolves to 0 in
+       Electron's fullscreen here (supported-but-0, so it shadows any env() fallback), so MAX it with
+       --safe-top (the real menu-bar/notch height the main process passes via ?safetop) and add a
+       comfortable gap below the notch. */
+    .np{position:fixed;top:calc(max(env(safe-area-inset-top, 0px), var(--safe-top, 44px)) + 22px);left:50%;z-index:9;box-sizing:border-box;
       transform:translateX(-50%) translateY(-12px) translateZ(0);opacity:0;pointer-events:auto;cursor:pointer;
       -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
       width:248px;height:46px;padding:8px;border-radius:23px;overflow:hidden;
