@@ -22,6 +22,24 @@ export function initElectronMode(refs) {
     if (e.target === canvas || e.target === document.body) { if (api.exitSettings) api.exitSettings(); }
   }
 
+  // In wallpaper mode the window is click-through; the main process polls the cursor against the
+  // now-playing card's rect (reported here) and makes the window momentarily clickable while the
+  // pointer is over it — so the card's controls (expand / seek / prev-pause-next) work, then it
+  // returns to click-through. Settings mode is already fully clickable, so we report no hot rect
+  // there. We re-report on every appear / expand / collapse / move so the rect stays exact.
+  const np = /** @type {HTMLElement|null} */ (document.querySelector('.np'));
+  function reportHot() {
+    if (!np || typeof api.setHotRect !== 'function') return;
+    if (curMode !== 'wallpaper' || !np.classList.contains('show')) { api.setHotRect(null); return; }
+    const r = np.getBoundingClientRect();
+    api.setHotRect({ x: r.left, y: r.top, w: r.width, h: r.height });
+  }
+  if (np && typeof ResizeObserver === 'function') {
+    new ResizeObserver(reportHot).observe(np);                                  // card grows/shrinks on expand
+    new MutationObserver(reportHot).observe(np, { attributes: true, attributeFilter: ['class'] }); // show / expand toggles
+    window.addEventListener('resize', reportHot);
+  }
+
   let curMode = 'wallpaper';
   /** @param {'wallpaper'|'settings'} mode */
   function apply(mode) {
@@ -35,17 +53,8 @@ export function initElectronMode(refs) {
       refs.closePanel();
       document.removeEventListener('click', onDocClick);
     }
+    reportHot(); // mode change flips whether the card is a hot (clickable) region
   }
   apply('wallpaper');          // default
   api.onMode(apply);
-
-  // In wallpaper mode the window is click-through; hovering the now-playing card asks the main
-  // process to make the window momentarily clickable, so its controls (expand / seek /
-  // prev-pause-next) work — then leaving it restores click-through. Settings mode is already
-  // fully clickable, so the toggle is skipped there.
-  const np = document.querySelector('.np');
-  if (np && typeof api.setInteractive === 'function') {
-    np.addEventListener('mouseenter', () => { if (curMode === 'wallpaper') api.setInteractive(true); });
-    np.addEventListener('mouseleave', () => { if (curMode === 'wallpaper') api.setInteractive(false); });
-  }
 }

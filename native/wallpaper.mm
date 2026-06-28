@@ -15,11 +15,18 @@ static napi_value SetDesktopLevel(napi_env env, napi_callback_info info) {
   napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   NSWindow* w = windowFromArg(env, args[0]);
   if (w) {
-    [w setLevel:(CGWindowLevelForKey(kCGDesktopIconWindowLevelKey) - 1)]; // just below the desktop icons
+    // Just ABOVE the desktop-icon level (but still far below normal app windows, which sit at
+    // level 0): the window must be the front-most surface over the bare desktop so macOS delivers
+    // it forwarded mouse-MOVE events (hover detection for the now-playing card) and, once the
+    // renderer asks to be interactive, the CLICK. Below the icon level the Finder desktop sits on
+    // top and swallows both, so the card could never be hovered or clicked. The app hides the
+    // desktop icons by default, so covering that (now-empty) layer has no visual cost.
+    [w setLevel:(CGWindowLevelForKey(kCGDesktopIconWindowLevelKey) + 1)];
     [w setCollectionBehavior:(NSWindowCollectionBehaviorCanJoinAllSpaces |
                               NSWindowCollectionBehaviorStationary |
                               NSWindowCollectionBehaviorIgnoresCycle)];
-    [w setIgnoresMouseEvents:YES];
+    // click-through is owned by Electron's setIgnoreMouseEvents(true, {forward:true}) in main.js
+    // (forwarding is what lets the renderer see the pointer over the card); don't set it here too.
   }
   return nullptr;
 }

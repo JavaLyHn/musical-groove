@@ -109,6 +109,25 @@ let win = null;
 
 let tray = null;
 let mode = 'wallpaper';
+let hotRect = null;        // now-playing card rect (CSS px, viewport-relative) or null when hidden
+let hotInteractive = false;// tracks whether the poll currently has the window clickable
+let hotPoll = null;        // cursor-poll interval handle
+
+// Make the window clickable only while the global cursor is over the reported card rect; otherwise
+// keep it click-through (forwarding move events). Wallpaper mode only.
+function pollHotRect() {
+  if (!win || mode !== 'wallpaper') return;
+  let inside = false;
+  if (hotRect) {
+    const b = win.getBounds();
+    const p = screen.getCursorScreenPoint();
+    inside = p.x >= b.x + hotRect.x && p.x <= b.x + hotRect.x + hotRect.w &&
+             p.y >= b.y + hotRect.y && p.y <= b.y + hotRect.y + hotRect.h;
+  }
+  if (inside === hotInteractive) return; // only flip on a real change
+  hotInteractive = inside;
+  win.setIgnoreMouseEvents(!inside, { forward: true });
+}
 // 16x16 monochrome "equalizer bars" template PNG (alpha = shape; macOS recolors it). A real
 // branded icon is a later optional task. A ♪ title is shown next to it as well.
 const TRAY_IMG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR42mNgGKzgPxIepgYQtID+BqALDD4DCFowagAFBgAAkBR0jNF3Gp4AAAAASUVORK5CYII=';
@@ -116,6 +135,7 @@ const TRAY_IMG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR42m
 function setMode(next) {
   if (!win) return;
   mode = next;
+  hotInteractive = false; // the level fns just (re)set the ignore state; keep the poll's tracking in sync
   if (next === 'settings') setNormalLevel(win); else setWallpaperLevel(win);
   win.webContents.send('wallpaper:mode', next);
   buildTrayMenu();
@@ -203,6 +223,13 @@ async function createWindow() {
   ipcMain.on('wallpaper:set-interactive', (_e, on) => {
     if (win && mode === 'wallpaper') win.setIgnoreMouseEvents(!on, { forward: true });
   });
+  // Robust click-through toggle: the renderer reports the now-playing card's viewport rect (CSS px,
+  // or null when hidden); we poll the GLOBAL cursor against it and flip the window between
+  // click-through and clickable. This doesn't depend on the window receiving forwarded mouse-move
+  // events (which a desktop-level window may not), so the card is reliably clickable in wallpaper
+  // mode. No-op in settings mode, where the whole window is already interactive.
+  ipcMain.on('wallpaper:hot-rect', (_e, rect) => { hotRect = rect || null; });
+  if (!hotPoll) hotPoll = setInterval(pollHotRect, 90);
   // macOS: explicitly request mic access from the main process — the renderer's getUserMedia
   // alone often won't trigger the TCC prompt. Logs the status so we can diagnose.
   try {
