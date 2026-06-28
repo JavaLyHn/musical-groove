@@ -18,8 +18,12 @@ import { existsSync } from 'node:fs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const PERL = '/usr/bin/perl';
-const SCRIPT = process.env.NOWPLAYING_SCRIPT || resolve(REPO, 'vendor/mediaremote-adapter/bin/mediaremote-adapter.pl');
-const FRAMEWORK = process.env.NOWPLAYING_FRAMEWORK || resolve(REPO, 'vendor/mediaremote-adapter/build/MediaRemoteAdapter.framework');
+// Resolve these LAZILY (per call), never at module-load: the packaged app sets
+// NOWPLAYING_SCRIPT/FRAMEWORK in electron/main.js, but ESM hoists this module's import above that
+// assignment — a load-time const would freeze the wrong (repo) path, existsSync() would fail, and
+// the bridge would never start. Reading at spawn time always picks up the right path.
+const scriptPath = () => process.env.NOWPLAYING_SCRIPT || resolve(REPO, 'vendor/mediaremote-adapter/bin/mediaremote-adapter.pl');
+const frameworkPath = () => process.env.NOWPLAYING_FRAMEWORK || resolve(REPO, 'vendor/mediaremote-adapter/build/MediaRemoteAdapter.framework');
 
 // The adapter ignores empty now-playing on startup, then fills in via stream. Don't
 // let that empty baseline clobber the `get` seed; only honour "stopped" after this.
@@ -99,7 +103,7 @@ export function createNowPlayingBridge(opts = {}) {
   }
 
   function seed() {
-    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'get'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    const p = spawn(PERL, [scriptPath(), frameworkPath(), 'get'], { stdio: ['ignore', 'pipe', 'ignore'] });
     let buf = '';
     p.stdout.on('data', (d) => { buf += d; });
     p.on('close', () => { try { setCurrent(normalizeTrack(JSON.parse(buf))); } catch { /* no track */ } });
@@ -108,7 +112,7 @@ export function createNowPlayingBridge(opts = {}) {
 
   function startStream() {
     if (stopped) return;
-    child = spawn(PERL, [SCRIPT, FRAMEWORK, 'stream', '--no-diff', '--debounce=250'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    child = spawn(PERL, [scriptPath(), frameworkPath(), 'stream', '--no-diff', '--debounce=250'], { stdio: ['ignore', 'pipe', 'ignore'] });
     const rl = createInterface({ input: /** @type {NodeJS.ReadableStream} */ (child.stdout) });
     rl.on('line', (line) => {
       const s = line.trim();
@@ -126,7 +130,7 @@ export function createNowPlayingBridge(opts = {}) {
   }
 
   function start() {
-    if (!existsSync(SCRIPT) || !existsSync(FRAMEWORK)) {
+    if (!existsSync(scriptPath()) || !existsSync(frameworkPath())) {
       log('adapter not built — run scripts/setup-nowplaying.sh (overlay stays hidden)');
       return false;
     }
@@ -300,7 +304,7 @@ function seekTo(position) {
   if (!Number.isFinite(pos) || pos < 0) return;
   const micros = Math.round(pos * 1e6);
   try {
-    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'seek', String(micros)], { stdio: 'ignore' });
+    const p = spawn(PERL, [scriptPath(), frameworkPath(), 'seek', String(micros)], { stdio: 'ignore' });
     p.on('error', () => {});
   } catch { /* ignore */ }
 }
@@ -311,7 +315,7 @@ function sendCommand(id) {
   const n = parseInt(String(id), 10);
   if (!Number.isFinite(n)) return;
   try {
-    const p = spawn(PERL, [SCRIPT, FRAMEWORK, 'send', String(n)], { stdio: 'ignore' });
+    const p = spawn(PERL, [scriptPath(), frameworkPath(), 'send', String(n)], { stdio: 'ignore' });
     p.on('error', () => {});
   } catch { /* ignore */ }
 }
