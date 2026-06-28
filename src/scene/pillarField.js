@@ -82,6 +82,7 @@ export function createPillarField() {
       uCoreHeat: { value: f.coreHeat }, uHotColor: { value: new THREE.Color(CONFIG.colors.hot) },
       uKick: { value: 0 }, uKickSurge: { value: f.kickSurge }, uKickFlash: { value: f.kickFlash },
       uIdleEmissive: { value: f.idleEmissive }, uIdleNoiseScale: { value: f.idleNoiseScale }, uIdleNoiseSpeed: { value: f.idleNoiseSpeed }, uTopTint: { value: f.topTint },
+      uGroundGlow: { value: f.groundGlow }, // faint navy underglow so the base carpet reads as a lit floor
       uSegPitch: { value: f.segPitch }, uGapRatio: { value: f.gapRatio },
       uSegmented: { value: f.segmented === false ? 0 : 1 }, // 1 = segmented blocks, 0 = smooth bar
       uRamp: { value: CONFIG.colors.ramp.map((h) => new THREE.Color(h)) },
@@ -263,6 +264,7 @@ export function createPillarField() {
     U.uIdleNoiseScale.value = f.idleNoiseScale;
     U.uIdleNoiseSpeed.value = f.idleNoiseSpeed;
     U.uTopTint.value = f.topTint;
+    U.uGroundGlow.value = f.groundGlow;
     U.uCoreHeat.value = f.coreHeat;
     U.uKick.value = kickPunch; U.uKickSurge.value = f.kickSurge; U.uKickFlash.value = f.kickFlash;
     U.uSegmented.value = f.segmented === false ? 0 : 1;
@@ -428,7 +430,7 @@ transformed.y = position.y * totalHeight;`;
 
 const FRAG_COMMON = `#include <common>
 uniform float uWhiteElev, uBrightFloor, uRadialDim, uSegPitch, uGapRatio, uCoreBoost, uEmissiveGain, uLevel, uSegmented;
-uniform float uIdleMix, uIdleEmissive, uTopTint;
+uniform float uIdleMix, uIdleEmissive, uTopTint, uGroundGlow;
 uniform float uTime, uWarmth, uBrightness, uSharpness;
 uniform float uSubBass, uBass, uLowMid, uMid, uHighMid, uPresence, uBrilliance, uAir;
 uniform vec3 uRamp[5];
@@ -473,6 +475,14 @@ float _seg = smoothstep(uGapRatio, uGapRatio + 0.10, fract(vSegY / uSegPitch));
 float _segMask = mix(0.22, 1.0, _seg);
 _segMask = mix(1.0, _segMask, uSegmented); // uSegmented 0 -> no gaps -> one smooth continuous bar
 vec3 _emis = paletteColor(_b) * _segMask;
+
+// CONTINUOUS GROUND CARPET: a faint navy underglow on the LOWER part of every cell, strongest on
+// short/quiet cells and fading up the pillar + away on tall active ones. With the raised baseHeight
+// (cells never collapse to ~0) this makes the floor read as one lit, connected surface, so the gaps
+// between tall pillars show glowing ground instead of see-through black ("黑空洞").
+float _ground = smoothstep(0.6, 0.0, vYNorm) * (1.0 - 0.65 * _hN);
+_emis += uGroundGlow * vec3(0.10, 0.17, 0.40) * _ground * _segMask;
+
 _emis *= (1.0 - uRadialDim * vRing);            // depth dim toward the edges
 _emis *= mix(1.0, uCoreBoost, 1.0 - vRing);     // CORE: the centre glows hotter -> a hot focus
 float _lvlGain = mix(0.45 + 0.55 * uLevel, uIdleEmissive, uIdleMix); // STANDBY emissive floor: silent field stays dim-but-visible, not ~black

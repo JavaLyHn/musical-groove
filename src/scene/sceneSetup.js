@@ -36,9 +36,15 @@ export function createScene() {
   const scene = new THREE.Scene();
   scene.background = makeGradientTexture(CONFIG.colors.bg1, CONFIG.colors.bg0);
   scene.fog = new THREE.Fog(new THREE.Color(CONFIG.colors.deep).getHex(), CONFIG.fog.near, CONFIG.fog.far);
-  scene.add(new THREE.AmbientLight(0x3a4170, 0.6));
-  const key = new THREE.DirectionalLight(0xbfd0ff, 0.35);
+  // Lift the ambient + add a low side-fill so the cube SIDES and the gaps between cells aren't pure
+  // black — the base carpet stays a (dim) lit surface rather than reading as voids. The field is
+  // still emissive-dominated; this only keeps the unlit faces from crushing to black.
+  scene.add(new THREE.AmbientLight(0x42496f, 0.95));
+  const key = new THREE.DirectionalLight(0xbfd0ff, 0.4);
   key.position.set(6, 12, 8);
   scene.add(key);
+  const fill = new THREE.DirectionalLight(0x6a78c0, 0.28); // low, opposite the key -> grazes the cube sides
+  fill.position.set(-8, 3, -6);
+  scene.add(fill);
   return scene;
 }

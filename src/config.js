@@ -35,7 +35,10 @@ export const CONFIG = {
     // own band. Volume controls height, NOT the lit area.
     centerPeak: 1.5,         // small STATIC core mound so the centre is always anchored
     falloff: 26.0,           // shaping of that small static core mound
-    baseHeight: 2.0,         // low floor; quiet/edge columns sit here
+    baseHeight: 4.6,         // CONTINUOUS BASE CARPET: every cell keeps at least this height so quiet
+                             //   cells never collapse to ~0 — the ground stays a connected surface that
+                             //   tall pillars grow OUT of, instead of sparse spikes with see-through gaps
+                             //   ("黑空洞"). Raised from 2.0 together with a tighter pillarWidth + base glow.
     reactive: 23.0,          // height gain on the (already-normalized) audio drive — bumped for punch
     ampPow: 1.8,             // drive^1.8 -> transients spike into thin tall towers
     bandScatter: 0.28,       // per-column band scatter -> granular, neighbours move independently
@@ -71,7 +74,10 @@ export const CONFIG = {
     segmented: true,         // true = stacked-block segments; false = one smooth continuous bar
     segPitch: 1.2,           // taller segment blocks (matches taller columns)
     gapRatio: 0.14,          // dark gap fraction per segment
-    pillarWidth: 1.95,       // narrower than the pitch -> clear gaps between cubes
+    pillarWidth: 2.85,       // wider footprint (~80% of the ~3.6 pitch) so the base cells nearly touch →
+                             //   the ground reads as a continuous carpet, not a grid with see-through gaps
+    groundGlow: 0.85,        // faint navy underglow on the lower part of EVERY cell so the floor reads as a
+                             //   lit surface even with no pillar on it (kills the "看穿到虚空" holes)
     capThickness: 0.55,      // peak-hold cap thickness
     capSink: 0.985,          // cap sink per 1/60s (slow descent)
     capThreshold: 1.6,       // only cap pillars risen this far above base (restrained)
