@@ -31,7 +31,7 @@ Latest → **[Releases](https://github.com/JavaLyHn/musical-groove/releases/late
 
 ```bash
 npm install
-npm run dev        # browser preview at http://127.0.0.1:5173  (?demo drives it with synthetic audio)
+npm run dev        # browser preview at http://127.0.0.1:5870  (?demo drives it with synthetic audio)
 npm test           # unit tests (Vitest)
 npm run typecheck  # tsc --noEmit (plain JS + // @ts-check)
 ```

@@ -33,7 +33,7 @@
 
 ```bash
 npm install
-npm run dev        # 浏览器预览 http://127.0.0.1:5173  （?demo 用合成音频驱动）
+npm run dev        # 浏览器预览 http://127.0.0.1:5870  （?demo 用合成音频驱动）
 npm test           # 单元测试 (Vitest)
 npm run typecheck  # tsc --noEmit（纯 JS + // @ts-check）
 ```

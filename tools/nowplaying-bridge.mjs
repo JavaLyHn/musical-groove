@@ -378,7 +378,8 @@ export function createNowPlayingHandler(opts = {}) {
 }
 
 // Vite dev-server plugin: spawn the bridge and serve the stream at /__nowplaying,
-// on whatever port Vite runs (so it follows the user's --port 5188). Dev only.
+// on whatever port Vite runs (it mounts on Vite's server, so it follows the configured
+// port — 5870 by default, see vite.config.js). Dev only.
 export function nowPlayingVitePlugin() {
   /** @type {ReturnType<typeof createNowPlayingHandler> | null} */
   let h = null;
