@@ -12,11 +12,14 @@ try { nativeWallpaper = require('../build/Release/wallpaper.node'); }
 catch (e) { console.log('[wallpaper] native addon unavailable:', e && e.message ? e.message : e); }
 
 function setWallpaperLevel(w) {
-  try { if (nativeWallpaper) nativeWallpaper.setDesktopLevel(w.getNativeWindowHandle()); }
+  // Sit ABOVE the desktop-icon level only when icons are hidden (so the now-playing card is
+  // clickable); when icons are shown, sit BELOW so they stay visible. See native/wallpaper.mm.
+  try { if (nativeWallpaper) nativeWallpaper.setDesktopLevel(w.getNativeWindowHandle(), desktopHidden); }
   catch (e) { console.log('[wallpaper] setDesktopLevel failed:', e && e.message ? e.message : e); }
   // Click-through to the Finder desktop/icons, but FORWARD mouse-move so the renderer can detect
   // when the pointer is over the now-playing card and request a momentary clickable region.
   w.setIgnoreMouseEvents(true, { forward: true });
+  hotInteractive = false; // we just (re)set click-through; keep the cursor-poll's tracking in sync
 }
 function setNormalLevel(w) {
   try { if (nativeWallpaper) nativeWallpaper.setNormalLevel(w.getNativeWindowHandle()); }
@@ -76,6 +79,9 @@ function setDesktopHidden(/** @type {boolean} */ hidden) {
   } else {
     restoreDesktop();
   }
+  // re-place the window: above the icon level when hidden (clickable card), below when shown (icons
+  // stay visible). Only in wallpaper mode — settings mode owns its own (normal) level.
+  if (win && !win.isDestroyed() && mode === 'wallpaper') setWallpaperLevel(win);
 }
 // Idempotent: restores the user's originals and clears the flag, at most once per hidden session.
 function restoreDesktop() {

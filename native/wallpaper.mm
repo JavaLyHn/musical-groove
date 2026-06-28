@@ -11,17 +11,23 @@ static NSWindow* windowFromArg(napi_env env, napi_value arg) {
 }
 
 static napi_value SetDesktopLevel(napi_env env, napi_callback_info info) {
-  size_t argc = 1; napi_value args[1];
+  size_t argc = 2; napi_value args[2];
   napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   NSWindow* w = windowFromArg(env, args[0]);
+  bool aboveIcons = false;
+  if (argc >= 2) napi_get_value_bool(env, args[1], &aboveIcons); // chosen by main.js from desktopHidden
   if (w) {
-    // Just ABOVE the desktop-icon level (but still far below normal app windows, which sit at
-    // level 0): the window must be the front-most surface over the bare desktop so macOS delivers
-    // it forwarded mouse-MOVE events (hover detection for the now-playing card) and, once the
-    // renderer asks to be interactive, the CLICK. Below the icon level the Finder desktop sits on
-    // top and swallows both, so the card could never be hovered or clicked. The app hides the
-    // desktop icons by default, so covering that (now-empty) layer has no visual cost.
-    [w setLevel:(CGWindowLevelForKey(kCGDesktopIconWindowLevelKey) + 1)];
+    // Two desktop placements, both far below normal app windows (level 0):
+    //  • ABOVE the icon level (+1): the window is the front-most surface over the bare desktop, so
+    //    macOS delivers it forwarded mouse-MOVE events + clicks → the now-playing card is hoverable
+    //    and clickable. Used ONLY when desktop icons are hidden (the app's clean-wallpaper default),
+    //    so covering that now-empty layer costs nothing.
+    //  • BELOW the icon level (-1): the Finder desktop + icons sit on top, so the user's icons stay
+    //    visible (a true wallpaper). Used when icons are shown — the card can't be clicked in this
+    //    mode (an opaque wallpaper can't be both above icons AND let them show through), but the
+    //    user chose icons; they can still interact via the tray's 设置 mode.
+    CGWindowLevel base = CGWindowLevelForKey(kCGDesktopIconWindowLevelKey);
+    [w setLevel:(aboveIcons ? base + 1 : base - 1)];
     [w setCollectionBehavior:(NSWindowCollectionBehaviorCanJoinAllSpaces |
                               NSWindowCollectionBehaviorStationary |
                               NSWindowCollectionBehaviorIgnoresCycle)];
