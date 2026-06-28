@@ -116,7 +116,7 @@ let hotPoll = null;        // cursor-poll interval handle
 // Make the window clickable only while the global cursor is over the reported card rect; otherwise
 // keep it click-through (forwarding move events). Wallpaper mode only.
 function pollHotRect() {
-  if (!win || mode !== 'wallpaper') return;
+  if (!win || win.isDestroyed() || mode !== 'wallpaper') return;
   let inside = false;
   if (hotRect) {
     const b = win.getBounds();
@@ -246,6 +246,7 @@ async function createWindow() {
   win.loadURL(server.url + '/?autoaudio');
   win.webContents.once('did-finish-load', () => { console.log('[tray] did-finish-load → createTray'); setWallpaperLevel(win); createTray(); });
   win.on('blur', () => { if (mode === 'settings') setMode('wallpaper'); });
+  win.on('closed', () => { win = null; if (hotPoll) { clearInterval(hotPoll); hotPoll = null; } });
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -258,7 +259,7 @@ if (!gotLock) { app.quit(); } else {
   });
   app.on('window-all-closed', () => { /* keep running (wallpaper); quit via tray */ });
   // Restore on EVERY exit path so a hidden desktop is never left behind.
-  app.on('before-quit', async () => { restoreDesktop(); if (server) await server.close(); });
+  app.on('before-quit', async () => { if (hotPoll) { clearInterval(hotPoll); hotPoll = null; } restoreDesktop(); if (server) await server.close(); });
   app.on('will-quit', () => restoreDesktop());
   // Ctrl-C in the dev terminal / `kill` send a signal that skips before-quit — restore then exit.
   const onSignal = () => { restoreDesktop(); process.exit(0); };
