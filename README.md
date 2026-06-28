@@ -1,5 +1,9 @@
 # Musical Groove · 声音星球
 
+**中文** · [English](README.en.md)
+
+![Musical Groove — 声音星球](assets/preview.jpg)
+
 让 macOS 随音乐**全屏律动**的音乐可视化 App。系统在放什么，一片弯曲穹顶上的「方块柱场」就跟着声音起伏，中心有发光的反应堆核心，顶部显示当前歌曲与同步歌词。
 
 > A fullscreen macOS music visualizer (Three.js · WebGL + Electron): a curved dome of
@@ -63,6 +67,10 @@ gh release create v<version> "release/Musical Groove-<version>-arm64.dmg" \
 ## 技术 / Stack
 
 Three.js（WebGL；自定义 GLSL 注入 `MeshStandardMaterial`，柱高与配色在顶点/片元着色器里按频段计算）· Electron · Vite · Vitest。
+
+## 更新日志 / Changelog
+
+见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
