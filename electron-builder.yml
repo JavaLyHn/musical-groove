@@ -17,6 +17,10 @@ extraResources:
     to: mediaremote-adapter/bin
   - from: vendor/mediaremote-adapter/build/MediaRemoteAdapter.framework
     to: mediaremote-adapter/build/MediaRemoteAdapter.framework
+  # solid-navy stand-in for the desktop picture (the Dock samples the desktop picture, not our
+  # desktop-level window) — must live OUTSIDE the asar so System Events can read its real path
+  - from: assets/wallpaper-solid.png
+    to: wallpaper-solid.png
 mac:
   category: public.app-category.entertainment
   target:

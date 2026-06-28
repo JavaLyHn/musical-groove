@@ -39,8 +39,33 @@ function readDefault(/** @type {string} */ domain, /** @type {string} */ key, /*
   try { return execSync(`defaults read ${domain} ${key} 2>/dev/null`).toString().trim(); }
   catch { return fallback; }
 }
+
+// The macOS Dock/menu-bar translucency samples the desktop PICTURE (the bottom-most desktop layer),
+// not our desktop-level window — so even though the window covers the whole screen, the user's
+// original photo shows through the Dock's glass. While we own the desktop we swap the picture for a
+// solid navy that matches the field's dark base, and restore the user's originals on exit (captured
+// into the same flag file as icons/widgets, so the restore is just as bulletproof).
+function solidWallpaperPath() {
+  return app.isPackaged ? join(process.resourcesPath, 'wallpaper-solid.png') : join(HERE, '..', 'assets', 'wallpaper-solid.png');
+}
+function wpScript(/** @type {string} */ body) {
+  // timeout so a pending one-time "control System Events" Automation prompt can't hang startup —
+  // on timeout/denial we just skip the wallpaper swap (and try again next launch once granted).
+  try { return execSync(`osascript -e 'tell application "System Events" to ${body}'`, { timeout: 8000 }).toString().trim(); }
+  catch (e) { console.log('[clean-desktop] wallpaper osascript failed (grant Automation → System Events?):', e && e.message ? e.message : e); return ''; }
+}
+function getWallpapers() {
+  const out = wpScript('get picture of every desktop'); // "p1, p2" across displays, or "" if unreadable
+  return out ? out.split(', ') : [];
+}
+function setWallpaperAll(/** @type {string} */ p) { wpScript(`tell every desktop to set picture to "${p}"`); }
+function restoreWallpapers(/** @type {string[]} */ paths) {
+  if (!paths || !paths.length) return;
+  for (let i = 0; i < paths.length; i++) if (paths[i]) wpScript(`set picture of desktop ${i + 1} to "${paths[i]}"`);
+}
+
 let _flagPath = '';   // userData/desktop-restore.json — exists iff WE currently have the desktop hidden
-let _orig = { icons: '1', stdWidgets: '0', stageWidgets: '0' }; // user's true originals
+let _orig = { icons: '1', stdWidgets: '0', stageWidgets: '0', wallpapers: /** @type {string[]} */ ([]) }; // user's true originals
 let desktopHidden = false;
 let _restored = true; // guards restore so the several exit signals each run it at most once
 
@@ -52,6 +77,7 @@ function loadDesktopOriginals() {
     icons: readDefault('com.apple.finder', 'CreateDesktop', '1'),                 // unset/1 = icons shown
     stdWidgets: readDefault('com.apple.WindowManager', 'StandardHideWidgets', '0'),
     stageWidgets: readDefault('com.apple.WindowManager', 'StageManagerHideWidgets', '0'),
+    wallpapers: getWallpapers(),                                                   // user's real desktop picture(s)
   };
 }
 function applyDesktop(/** @type {boolean} */ hidden) {
@@ -61,10 +87,12 @@ function applyDesktop(/** @type {boolean} */ hidden) {
       execSync('defaults write com.apple.finder CreateDesktop -bool false');               // hide icons/files
       execSync('defaults write com.apple.WindowManager StandardHideWidgets -bool true');     // hide desktop widgets
       execSync('defaults write com.apple.WindowManager StageManagerHideWidgets -bool true');
+      setWallpaperAll(solidWallpaperPath());                                                 // solid navy under the Dock/menu-bar glass
     } else { // restore exactly what the user had
       execSync(`defaults write com.apple.finder CreateDesktop -bool ${b(_orig.icons !== '0')}`);
       execSync(`defaults write com.apple.WindowManager StandardHideWidgets -bool ${b(_orig.stdWidgets === '1')}`);
       execSync(`defaults write com.apple.WindowManager StageManagerHideWidgets -bool ${b(_orig.stageWidgets === '1')}`);
+      restoreWallpapers(_orig.wallpapers);                                                   // put the user's photo back
     }
     execSync('killall Finder');        // relaunch Finder so the icon change applies now
     execSync('killall WindowManager'); // relaunch WindowManager so the widget change applies now
@@ -164,7 +192,7 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: '开机自启', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }) },
-    { label: '隐藏桌面图标和小组件', type: 'checkbox', checked: desktopHidden,
+    { label: '全屏接管桌面（隐藏图标 / 小组件 / 壁纸）', type: 'checkbox', checked: desktopHidden,
       click: () => { setDesktopHidden(!desktopHidden); buildTrayMenu(); } },
     { label: '退出 Musical Groove', click: () => app.quit() },
   ]);
