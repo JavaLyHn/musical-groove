@@ -79,7 +79,11 @@ async function createWindow() {
     }, (err) => { console.log('[loopback] getSources failed (Screen Recording not granted?):', err && err.message ? err.message : err); callback({}); });
   }, { useSystemPicker: false });
 
-  const { bounds } = screen.getPrimaryDisplay();
+  const disp = screen.getPrimaryDisplay();
+  const { bounds } = disp;
+  // Top safe-inset (menu-bar / notch height) passed to the page as a fallback for
+  // env(safe-area-inset-top), so the centered now-playing card never hides under the camera notch.
+  const safeTop = Math.max(0, disp.workArea.y - disp.bounds.y);
   win = new BrowserWindow({
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     frame: false, resizable: false, movable: false, backgroundColor: '#0B1330',
@@ -103,7 +107,7 @@ async function createWindow() {
   } catch (err) { console.log('[mic] askForMediaAccess error:', err && err.message ? err.message : err); }
   console.log('[screen] TCC status:', systemPreferences.getMediaAccessStatus('screen'));
 
-  win.loadURL(server.url + '/?autoaudio');
+  win.loadURL(`${server.url}/?autoaudio&safetop=${safeTop}`);
   win.webContents.once('did-finish-load', () => createTray());
   win.on('closed', () => { win = null; });
 }

@@ -23,9 +23,17 @@ export function createNowPlaying(opts = {}) {
   const onSeek = opts.onSeek || (() => {});
   const onCmd = opts.onCmd || (() => {}); // MRCommand: prev=5, toggle play/pause=2, next=4
 
+  // Notched-Mac safe area: the Electron main process passes the top inset (menu-bar/notch height)
+  // as ?safetop, used as the fallback when env(safe-area-inset-top) isn't available — so the
+  // centered card sits below the camera notch instead of under it.
+  const _safeTop = Number(new URLSearchParams(location.search).get('safetop')) || 0;
+  if (_safeTop > 0) document.documentElement.style.setProperty('--safe-top', _safeTop + 'px');
+
   const style = document.createElement('style');
   style.textContent = `
-    .np{position:fixed;top:16px;left:50%;z-index:9;box-sizing:border-box;
+    /* top offset clears the camera notch on notched Macs: prefer the OS safe-area inset, fall back
+       to --safe-top (the menu-bar/notch height the main process passes via ?safetop). */
+    .np{position:fixed;top:calc(env(safe-area-inset-top, var(--safe-top, 0px)) + 14px);left:50%;z-index:9;box-sizing:border-box;
       transform:translateX(-50%) translateY(-12px) translateZ(0);opacity:0;pointer-events:auto;cursor:pointer;
       -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
       width:248px;height:46px;padding:8px;border-radius:23px;overflow:hidden;
