@@ -2,7 +2,7 @@
 
 All notable changes to Musical Groove are documented here.
 
-## v0.1.0 — 2026-06-28
+## v1.0.0 — 2026-06-28
 
 首个公开版本 / First public release.
 
@@ -14,4 +14,4 @@ All notable changes to Musical Groove are documented here.
 - **控制台 / Console**：点 LyHN 签名打开；45 项参数 + 版本预设 + 默认风格；不保存关闭自动还原到调整前。
 - **打包 / Packaging**：macOS Apple Silicon (arm64) dmg，未签名 / ad‑hoc。
 
-[v0.1.0]: https://github.com/JavaLyHn/musical-groove/releases/tag/v0.1.0
+[v1.0.0]: https://github.com/JavaLyHn/musical-groove/releases/tag/v1.0.0
