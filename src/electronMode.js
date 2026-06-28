@@ -12,8 +12,17 @@ export function initElectronMode(refs) {
   style.textContent = `
     body.wp-wallpaper .lyhn-lyrics { pointer-events: none !important; }
     body.wp-wallpaper .np:not(.show) { pointer-events: none !important; }
-    body.wp-wallpaper .mg-console { display: none !important; }`;
+    body.wp-wallpaper .mg-console { display: none !important; }
+    /* Navy top-fade: the macOS menu bar samples the solid-navy desktop picture, but the scene's top
+       edge is much darker, so the menu bar's bottom hairline glared against it. This blends the very
+       top of the wallpaper to that same navy, then fades into the scene — so the seam disappears. */
+    .wp-topfade { position: fixed; top: 0; left: 0; right: 0; height: 54px; z-index: 1;
+      pointer-events: none; background: linear-gradient(180deg, #0B1330 0%, rgba(11,19,48,0.82) 30%, transparent 100%); }`;
   document.head.appendChild(style);
+
+  const topFade = document.createElement('div');
+  topFade.className = 'wp-topfade';
+  document.body.appendChild(topFade);
 
   const canvas = document.getElementById('app');
   /** @param {MouseEvent} e */

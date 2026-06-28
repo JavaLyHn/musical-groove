@@ -241,9 +241,15 @@ async function createWindow() {
       callback({});
     });
   }, { useSystemPicker: false });
-  const { bounds } = screen.getPrimaryDisplay();
+  // Inset the TOP by the menu-bar height so no window sits UNDER the menu bar: macOS draws a bright
+  // separator hairline at the menu-bar bottom only when a window is behind it, and it glared against
+  // our dark scene. Starting just below the menu bar (it floats over the solid-navy desktop picture
+  // instead) removes that. Width + bottom stay full (the bottom still spans under the Dock).
+  const disp = screen.getPrimaryDisplay();
+  const bounds = disp.bounds;
+  const menuBarH = Math.max(0, disp.workArea.y - bounds.y);
   win = new BrowserWindow({
-    x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+    x: bounds.x, y: bounds.y + menuBarH, width: bounds.width, height: bounds.height - menuBarH,
     frame: false, resizable: false, movable: false, fullscreenable: false,
     backgroundColor: '#0B1330',
     skipTaskbar: true,
