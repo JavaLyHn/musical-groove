@@ -6,7 +6,7 @@
 // are decorative chrome — not wired to audio (spec §9). Lazily imported by main.js on first open.
 import './console.css';
 import { CONFIG } from '../config.js';
-import { isDirty, applySnapshot } from '../presets.js';
+import { isDirty, applySnapshot, revertToBaseline } from '../presets.js';
 import { SECTIONS } from './schema.js';
 import { makeSlider, makeToggle, makeDial, makeColor } from './widgets.js';
 import { createPresetsBar } from './presetsBar.js';
@@ -168,7 +168,9 @@ export function createConsole({ rig, renderer, onClose }) {
   function requestClose() { if (isDirty(refs)) openPrompt(); else { hide(); onClose(); } }
 
   saveExit.addEventListener('click', () => { presetsBar.saveCurrent(); closePrompt(); hide(); onClose(); });
-  discardExit.addEventListener('click', () => { closePrompt(); hide(); onClose(); });
+  // discard = the edits made this session don't take effect: roll the live params back to the
+  // baseline (load / last-saved) before closing, and re-sync the widgets to the reverted values.
+  discardExit.addEventListener('click', () => { revertToBaseline(refs); refreshAll(); closePrompt(); hide(); onClose(); });
   cancelClose.addEventListener('click', closePrompt);
   promptEl.addEventListener('click', (e) => { if (e.target === promptEl) closePrompt(); }); // click backdrop = cancel
 

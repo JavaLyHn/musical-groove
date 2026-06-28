@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from 'vitest';
-import { markClean, isDirty } from '../src/presets.js';
+import { markClean, isDirty, revertToBaseline } from '../src/presets.js';
 import { CONFIG } from '../src/config.js';
 
 const mkRefs = () => ({
@@ -26,6 +26,21 @@ describe('presets dirty tracking (markClean / isDirty)', () => {
       expect(isDirty(refs)).toBe(false);
     } finally {
       CONFIG.field.coreHeat = orig; // restore the live CONFIG field we touched
+    }
+  });
+
+  it('revertToBaseline rolls an unsaved change back to the clean value', () => {
+    const refs = mkRefs();
+    const orig = CONFIG.field.coreHeat;
+    try {
+      markClean(refs);                 // baseline captures orig
+      CONFIG.field.coreHeat = orig + 5; // unsaved edit
+      expect(isDirty(refs)).toBe(true);
+      revertToBaseline(refs);           // discard
+      expect(CONFIG.field.coreHeat).toBe(orig);
+      expect(isDirty(refs)).toBe(false);
+    } finally {
+      CONFIG.field.coreHeat = orig;
     }
   });
 });

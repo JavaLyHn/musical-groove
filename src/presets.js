@@ -118,6 +118,13 @@ export function isDirty(refs) {
   return JSON.stringify(snapshot(refs)) !== _baseline;
 }
 
+/** Discard unsaved edits: restore the live state to the clean baseline (the look at load / last
+ *  save / last applied version). Used by the console when the user closes without saving. @param {Refs} refs */
+export function revertToBaseline(refs) {
+  if (_baseline === null) return;
+  try { applySnapshot(refs, JSON.parse(_baseline)); } catch { /* corrupt baseline -> leave as-is */ }
+}
+
 /** The stableKeys a snapshot captures — for the console schema consistency test.
  *  Uses empty refs because `targets()` only stores the object refs, not their values.
  *  @returns {string[]} */
