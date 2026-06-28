@@ -22,7 +22,8 @@ export const CONFIG = {
     rampWarm: ['#1A1024', '#7E2E3A', '#C0744E', '#E6A88F', '#FFEEE6'], // WARM: dark → maroon → terracotta → peach → warm-white (timbre blend)
     core: '#9AA6F2',         // cool lavender-blue reactor pulse (not white)
     accent: '#5FD0E0',       // cold-teal atmosphere accent
-    deep: '#060A1C',         // cool deep-space color the far cubes recede into (darker + bluer than bg)
+    deep: '#0C1636',         // cool deep-space color the far cubes recede into — fades to the bg navy, NOT near-black,
+                             //   so sightlines between/past pillars don't read as stark black voids ("黑的空洞")
     hot: '#DCEBFF',          // cool white-hot for peak flashes/ripples/accents — keeps loud moments
                              //   inside the blue family (no raw white blow-out) while preserving column shape
   },
