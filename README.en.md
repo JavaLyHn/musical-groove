@@ -2,7 +2,7 @@
 
 [中文](README.md) · **English**
 
-![Musical Groove](assets/preview.gif)
+![Musical Groove](assets/preview.jpg)
 
 A fullscreen macOS music visualizer. Whatever your system is playing, a curved dome of
 audio‑reactive "block" pillars rises and falls to the sound, around a glowing reactor core,
