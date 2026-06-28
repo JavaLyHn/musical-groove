@@ -2,7 +2,9 @@
 
 **中文** · [English](README.en.md)
 
-![Musical Groove — 声音星球](assets/preview.gif)
+<video src="https://github.com/JavaLyHn/musical-groove/raw/main/assets/preview.mp4" autoplay loop muted playsinline controls width="100%"></video>
+
+<sub>▶ 预览(若不自动播放点一下);静态图见 <a href="assets/preview.jpg">assets/preview.jpg</a></sub>
 
 让 macOS 随音乐**全屏律动**的音乐可视化 App。系统在放什么，一片弯曲穹顶上的「方块柱场」就跟着声音起伏，中心有发光的反应堆核心，顶部显示当前歌曲与同步歌词。
 

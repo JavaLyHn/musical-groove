@@ -2,7 +2,9 @@
 
 [中文](README.md) · **English**
 
-![Musical Groove](assets/preview.gif)
+<video src="https://github.com/JavaLyHn/musical-groove/raw/main/assets/preview.mp4" autoplay loop muted playsinline controls width="100%"></video>
+
+<sub>▶ Preview (click to play if it doesn't autoplay); still image: <a href="assets/preview.jpg">assets/preview.jpg</a></sub>
 
 A fullscreen macOS music visualizer. Whatever your system is playing, a curved dome of
 audio‑reactive "block" pillars rises and falls to the sound, around a glowing reactor core,
